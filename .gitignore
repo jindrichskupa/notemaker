@@ -1,0 +1,198 @@
+# =============================================================================
+# Dependencies
+# =============================================================================
+node_modules/
+.pnpm-store/
+
+# =============================================================================
+# Build outputs
+# =============================================================================
+dist/
+build/
+out/
+*.bundle.js
+
+# Rust/Tauri
+target/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/WixTools/
+src-tauri/*.wixpj
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# =============================================================================
+# Secrets & Credentials (CRITICAL)
+# =============================================================================
+# Age encryption
+*.age
+*.age.key
+*.age.pub
+!*.age.example
+
+# SSH/GPG keys
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# Generic secrets
+*.secret
+*.secrets
+secrets/
+.secrets/
+credentials.json
+credentials.yaml
+service-account*.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+.envrc
+
+# API keys
+*.apikey
+api-keys/
+
+# macOS Keychain
+*.keychain
+*.keychain-db
+
+# =============================================================================
+# IDE & Editors
+# =============================================================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ, WebStorm, RustRover)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim/Neovim
+*.swp
+*.swo
+*.swn
+*~
+.netrwhist
+Session.vim
+.vim/
+
+# Emacs
+*~
+\#*\#
+.#*
+*.elc
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# OS-specific
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# =============================================================================
+# Logs & Debug
+# =============================================================================
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log
+
+# Rust logs
+*.profraw
+*.profdata
+
+# =============================================================================
+# Test & Coverage
+# =============================================================================
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+
+# =============================================================================
+# Cache & Temp
+# =============================================================================
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Rust cache
+.cargo/
+**/*.rs.bk
+
+# =============================================================================
+# Tauri Mobile (if initialized)
+# =============================================================================
+src-tauri/gen/android/
+src-tauri/gen/apple/
+*.apk
+*.aab
+*.ipa
+
+# =============================================================================
+# Release artifacts (built locally)
+# =============================================================================
+*.dmg
+*.app
+*.deb
+*.rpm
+*.AppImage
+*.exe
+*.msi
+*.nsis
+
+# =============================================================================
+# Misc
+# =============================================================================
+# Package manager locks (optional - uncomment if you want to ignore)
+# pnpm-lock.yaml
+# package-lock.json
+# yarn.lock
+# Cargo.lock  # Note: Cargo.lock should be committed for applications
+
+# Local development overrides
+*.local
+.local/
+
+# Vitest
+.vitest/
