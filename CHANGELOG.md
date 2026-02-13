@@ -2,6 +2,14 @@
 
 All notable changes to Notemaker will be documented in this file.
 
+## [0.2.1] - 2026-02-13
+
+### Fixes
+- **macOS Build** - Ad-hoc code signing to prevent "damaged app" error
+- **Release Notes** - Added installation instructions for all platforms
+
+---
+
 ## [0.2.0] - 2026-02-13
 
 ### Notebook Templates
