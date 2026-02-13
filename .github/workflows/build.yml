@@ -95,6 +95,18 @@ jobs:
         with:
           args: --target ${{ matrix.target }}
 
+      - name: Sign macOS app (ad-hoc)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          # Find and sign the .app bundle
+          APP_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle/macos -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "Signing: $APP_PATH"
+            codesign --force --deep --sign - "$APP_PATH"
+            echo "Verifying signature..."
+            codesign --verify --verbose "$APP_PATH" || true
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -128,6 +140,32 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### macOS
+            Download the `.dmg` file for your architecture:
+            - `Notemaker_*_aarch64.dmg` - Apple Silicon (M1/M2/M3)
+            - `Notemaker_*_x64.dmg` - Intel
+
+            **Note:** The app is not notarized. After opening the DMG:
+            1. Drag Notemaker to Applications
+            2. Right-click the app and select "Open"
+            3. Click "Open" in the dialog
+
+            Or run in Terminal:
+            ```bash
+            xattr -cr /Applications/Notemaker.app
+            ```
+
+            ### Linux
+            - `.AppImage` - Universal (make executable with `chmod +x`)
+            - `.deb` - Debian/Ubuntu
+
+            ### Windows
+            - `.msi` - Windows Installer
+            - `.exe` - NSIS Installer
+
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.deb
