@@ -84,19 +84,8 @@ export function NotebookBlock(props: NotebookBlockProps) {
   // Display content (decrypted if available, otherwise raw)
   const displayContent = () => decryptedContent() ?? blockContent();
 
-  // Handle encrypt block
-  const handleEncrypt = async () => {
-    setEncryptionError(null);
-
-    // Try auto-unlock if not unlocked
-    if (!encryptionStore.isUnlocked()) {
-      const result = await encryptionStore.tryAutoUnlock();
-      if (!result.success) {
-        setEncryptionError(result.error || "Failed to unlock encryption");
-        return;
-      }
-    }
-
+  // Perform encryption after unlock
+  const doEncrypt = async () => {
     const content = blockContent();
     if (!content || isEncrypted()) return;
 
@@ -116,6 +105,43 @@ export function NotebookBlock(props: NotebookBlockProps) {
     }
   };
 
+  // Handle encrypt block
+  const handleEncrypt = async () => {
+    setEncryptionError(null);
+
+    // Try auto-unlock if not unlocked
+    if (!encryptionStore.isUnlocked()) {
+      const result = await encryptionStore.tryAutoUnlock();
+      if (!result.success) {
+        if (result.needsPassword) {
+          // Request password from user, then encrypt
+          encryptionStore.requestPassword(() => doEncrypt());
+          return;
+        }
+        setEncryptionError(result.error || "Failed to unlock encryption");
+        return;
+      }
+    }
+
+    await doEncrypt();
+  };
+
+  // Perform decryption after unlock
+  const doDecrypt = async () => {
+    const content = blockContent();
+    if (!content || !isEncrypted()) return;
+
+    try {
+      const decrypted = await decryptBlock(content);
+      setDecryptedContent(decrypted);
+      setIsEncrypted(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setEncryptionError(`Failed to decrypt: ${msg}`);
+      console.error("Failed to decrypt block:", e);
+    }
+  };
+
   // Handle decrypt block
   const handleDecrypt = async () => {
     setEncryptionError(null);
@@ -124,22 +150,17 @@ export function NotebookBlock(props: NotebookBlockProps) {
     if (!encryptionStore.isUnlocked()) {
       const result = await encryptionStore.tryAutoUnlock();
       if (!result.success) {
+        if (result.needsPassword) {
+          // Request password from user, then decrypt
+          encryptionStore.requestPassword(() => doDecrypt());
+          return;
+        }
         setEncryptionError(result.error || "Failed to unlock encryption");
         return;
       }
     }
 
-    const content = blockContent();
-    if (!content || !isEncrypted()) return;
-
-    try {
-      const decrypted = await decryptBlock(content);
-      setDecryptedContent(decrypted);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setEncryptionError(`Failed to decrypt: ${msg}`);
-      console.error("Failed to decrypt block:", e);
-    }
+    await doDecrypt();
   };
 
   // Save decrypted content permanently (removes encryption)

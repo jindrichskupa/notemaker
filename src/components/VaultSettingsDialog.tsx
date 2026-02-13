@@ -3,10 +3,10 @@
  * Stored in .notemaker/config.yaml
  */
 
-import { createSignal, Show, createEffect } from "solid-js";
+import { createSignal, Show, createEffect, For } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { vaultStore } from "../lib/store/vault";
-import { getVaultConfig, saveVaultConfig, VaultConfig } from "../lib/fs";
+import { getVaultConfig, saveVaultConfig, VaultConfig, Recipient, getPublicKeyFromIdentityFile, EncryptionMethod } from "../lib/fs";
 
 export interface VaultSettingsDialogProps {
   isOpen: boolean;
@@ -310,6 +310,11 @@ function GitSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) {
 // Encryption Settings
 function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) {
   const [identityPath, setIdentityPath] = createSignal(props.config.encryption?.identity_file || "");
+  const [recipients, setRecipients] = createSignal<Recipient[]>(props.config.encryption?.recipients || []);
+  const [newRecipientName, setNewRecipientName] = createSignal("");
+  const [newRecipientPath, setNewRecipientPath] = createSignal("");
+  const [addingRecipient, setAddingRecipient] = createSignal(false);
+  const [recipientError, setRecipientError] = createSignal<string | null>(null);
 
   const handleBrowseIdentity = async () => {
     const file = await open({
@@ -320,6 +325,64 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
       setIdentityPath(file);
       props.onUpdate("encryption", "identity_file", file);
     }
+  };
+
+  const handleBrowseRecipientIdentity = async () => {
+    const file = await open({
+      multiple: false,
+      title: "Select Age Identity File for Recipient",
+    });
+    if (file) {
+      setNewRecipientPath(file);
+    }
+  };
+
+  const handleAddRecipient = async () => {
+    const name = newRecipientName().trim();
+    const path = newRecipientPath().trim();
+
+    if (!name) {
+      setRecipientError("Name is required");
+      return;
+    }
+    if (!path) {
+      setRecipientError("Identity file path is required");
+      return;
+    }
+
+    setAddingRecipient(true);
+    setRecipientError(null);
+
+    try {
+      const publicKey = await getPublicKeyFromIdentityFile(path);
+
+      const newRecipient: Recipient = {
+        id: `recipient-${Date.now()}`,
+        name,
+        public_key: publicKey,
+        identity_file: path,
+        added_at: new Date().toISOString(),
+      };
+
+      const updatedRecipients = [...recipients(), newRecipient];
+      setRecipients(updatedRecipients);
+      props.onUpdate("encryption", "recipients", updatedRecipients);
+
+      // Clear form
+      setNewRecipientName("");
+      setNewRecipientPath("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setRecipientError(`Failed to add recipient: ${msg}`);
+    } finally {
+      setAddingRecipient(false);
+    }
+  };
+
+  const handleRemoveRecipient = (id: string) => {
+    const updatedRecipients = recipients().filter(r => r.id !== id);
+    setRecipients(updatedRecipients);
+    props.onUpdate("encryption", "recipients", updatedRecipients);
   };
 
   return (
@@ -338,12 +401,13 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
           <SettingRow label="Method" description="How to authenticate for encryption">
             <select
               value={props.config.encryption?.method || "password"}
-              onChange={(e) => props.onUpdate("encryption", "method", e.currentTarget.value as "password" | "identityfile")}
+              onChange={(e) => props.onUpdate("encryption", "method", e.currentTarget.value as EncryptionMethod)}
               class="bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
               style={{ padding: "4px 8px" }}
             >
               <option value="password">Password</option>
               <option value="identityfile">Identity File</option>
+              <option value="recipients">Multiple Recipients</option>
             </select>
           </SettingRow>
 
@@ -371,6 +435,111 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
               </div>
             </SettingRow>
           </Show>
+
+          <Show when={props.config.encryption?.method === "recipients"}>
+            <div style={{ "margin-top": "16px" }}>
+              <div class="text-sm text-gray-300 font-medium" style={{ "margin-bottom": "12px" }}>
+                Recipients ({recipients().length})
+              </div>
+
+              {/* Existing recipients */}
+              <div style={{ display: "flex", "flex-direction": "column", gap: "8px", "margin-bottom": "16px" }}>
+                <For each={recipients()}>
+                  {(recipient) => (
+                    <div class="bg-gray-700/50 border border-gray-600 rounded-lg" style={{ padding: "12px" }}>
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <div class="text-sm font-medium text-gray-200">{recipient.name}</div>
+                          <div class="text-xs text-gray-500 font-mono" style={{ "margin-top": "4px" }}>
+                            {recipient.public_key.substring(0, 20)}...
+                          </div>
+                          <Show when={recipient.identity_file}>
+                            <div class="text-xs text-gray-500" style={{ "margin-top": "2px" }}>
+                              {recipient.identity_file}
+                            </div>
+                          </Show>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveRecipient(recipient.id)}
+                          class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-colors"
+                          title="Remove recipient"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </For>
+
+                <Show when={recipients().length === 0}>
+                  <div class="text-sm text-gray-500 text-center" style={{ padding: "16px" }}>
+                    No recipients added yet
+                  </div>
+                </Show>
+              </div>
+
+              {/* Add recipient form */}
+              <div class="bg-gray-700/30 border border-gray-600 rounded-lg" style={{ padding: "16px" }}>
+                <div class="text-sm text-gray-300 font-medium" style={{ "margin-bottom": "12px" }}>
+                  Add Recipient
+                </div>
+
+                <div style={{ display: "flex", "flex-direction": "column", gap: "12px" }}>
+                  <div>
+                    <label class="block text-xs text-gray-400" style={{ "margin-bottom": "4px" }}>Name</label>
+                    <input
+                      type="text"
+                      value={newRecipientName()}
+                      onInput={(e) => setNewRecipientName(e.currentTarget.value)}
+                      placeholder="e.g., Work Laptop"
+                      class="w-full bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
+                      style={{ padding: "6px 10px" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label class="block text-xs text-gray-400" style={{ "margin-bottom": "4px" }}>Identity File</label>
+                    <div class="flex" style={{ gap: "8px" }}>
+                      <input
+                        type="text"
+                        value={newRecipientPath()}
+                        onInput={(e) => setNewRecipientPath(e.currentTarget.value)}
+                        placeholder="~/.age/key.txt"
+                        class="flex-1 bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
+                        style={{ padding: "6px 10px" }}
+                      />
+                      <button
+                        onClick={handleBrowseRecipientIdentity}
+                        class="text-sm bg-gray-700 border border-gray-600 hover:bg-gray-600 rounded transition-colors"
+                        style={{ padding: "6px 12px" }}
+                      >
+                        Browse
+                      </button>
+                    </div>
+                  </div>
+
+                  <Show when={recipientError()}>
+                    <div class="text-sm text-red-400">{recipientError()}</div>
+                  </Show>
+
+                  <button
+                    onClick={handleAddRecipient}
+                    disabled={addingRecipient() || !newRecipientName().trim() || !newRecipientPath().trim()}
+                    class="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
+                    style={{ padding: "8px 16px" }}
+                  >
+                    {addingRecipient() ? "Adding..." : "Add Recipient"}
+                  </button>
+                </div>
+
+                <div class="text-xs text-gray-500" style={{ "margin-top": "12px" }}>
+                  Generate a new key with: <code class="bg-gray-700 rounded" style={{ padding: "0 4px" }}>age-keygen -o key.txt</code>
+                </div>
+              </div>
+            </div>
+          </Show>
         </SettingGroup>
 
         <SettingGroup title="About Encryption">
@@ -379,14 +548,16 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
               This vault uses the <span class="text-gray-200">age</span> encryption format.
             </p>
             <p>
-              <strong class="text-gray-300">Password:</strong> Uses scrypt key derivation.
+              <strong class="text-gray-300">Password:</strong> Uses scrypt key derivation. Simple but requires sharing password.
             </p>
             <p>
-              <strong class="text-gray-300">Identity File:</strong> Uses age X25519 keys. Generate with:
-              <code class="bg-gray-700 rounded" style={{ padding: "0 4px", "margin-left": "4px" }}>age-keygen -o key.txt</code>
+              <strong class="text-gray-300">Identity File:</strong> Uses age X25519 keys. More secure, single user.
+            </p>
+            <p>
+              <strong class="text-gray-300">Multiple Recipients:</strong> Encrypt for multiple keys. Each recipient can decrypt with their own key.
             </p>
             <p class="text-xs text-gray-500">
-              The unlock dialog will appear when you try to decrypt encrypted content.
+              Generate keys with: <code class="bg-gray-700 rounded" style={{ padding: "0 4px" }}>age-keygen -o key.txt</code>
             </p>
           </div>
         </SettingGroup>

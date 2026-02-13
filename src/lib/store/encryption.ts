@@ -10,7 +10,12 @@ import {
   encryptBlock,
   decryptBlock,
   getVaultConfig,
-  EncryptionMethod,
+  setupRecipientsEncryption,
+  addRecipientIdentity,
+  getRecipientPublicKeys,
+  clearRecipients,
+  type EncryptionMethod,
+  type Recipient,
 } from "../fs";
 import { vaultStore } from "./vault";
 
@@ -20,6 +25,9 @@ function createEncryptionStore() {
   const [hasStoredCredentials, setHasStoredCredentials] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [recipients, setRecipients] = createSignal<Recipient[]>([]);
+  const [showPasswordDialog, setShowPasswordDialog] = createSignal(false);
+  const [pendingUnlockCallback, setPendingUnlockCallback] = createSignal<(() => void) | null>(null);
 
   // Check initial state and try to auto-unlock from keychain
   async function initialize() {
@@ -50,8 +58,8 @@ function createEncryptionStore() {
   }
 
   // Try to auto-unlock using vault config and keychain
-  // Returns: { success: boolean, error?: string }
-  async function tryAutoUnlock(): Promise<{ success: boolean; error?: string }> {
+  // Returns: { success: boolean, error?: string, needsPassword?: boolean }
+  async function tryAutoUnlock(): Promise<{ success: boolean; error?: string; needsPassword?: boolean }> {
     // Already unlocked?
     if (isUnlocked()) {
       return { success: true };
@@ -99,8 +107,32 @@ function createEncryptionStore() {
         }
       }
 
-      // Password method but no keychain credentials
-      return { success: false, error: "Encryption locked. Set password in Vault Settings." };
+      // If method is recipients, try to set up from config
+      if (config.encryption.method === "recipients") {
+        const configRecipients = config.encryption.recipients || [];
+        if (configRecipients.length > 0) {
+          try {
+            const publicKeys = configRecipients.map(r => r.public_key);
+            const identityPaths = configRecipients
+              .filter(r => r.identity_file)
+              .map(r => r.identity_file!);
+
+            await setupRecipientsEncryption(publicKeys, identityPaths);
+            setIsUnlocked(true);
+            setMethod("recipients");
+            setRecipients(configRecipients);
+            return { success: true };
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            return { success: false, error: `Failed to setup recipients: ${msg}` };
+          }
+        } else {
+          return { success: false, error: "No recipients configured. Add recipients in Vault Settings." };
+        }
+      }
+
+      // Password method but no keychain credentials - need to prompt user
+      return { success: false, error: "Password required", needsPassword: true };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return { success: false, error: msg };
@@ -207,6 +239,92 @@ function createEncryptionStore() {
     return decryptBlock(content);
   }
 
+  // Setup encryption with multiple recipients
+  async function setupWithRecipients(
+    recipientList: Recipient[]
+  ): Promise<boolean> {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const publicKeys = recipientList.map(r => r.public_key);
+      const identityPaths = recipientList
+        .filter(r => r.identity_file)
+        .map(r => r.identity_file!);
+
+      await setupRecipientsEncryption(publicKeys, identityPaths);
+      setIsUnlocked(true);
+      setMethod("recipients");
+      setRecipients(recipientList);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Add a recipient identity and return its public key
+  async function addRecipient(
+    identityPath: string
+  ): Promise<{ success: boolean; publicKey?: string; error?: string }> {
+    try {
+      const publicKey = await addRecipientIdentity(identityPath);
+      return { success: true, publicKey };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { success: false, error: msg };
+    }
+  }
+
+  // Get currently configured public keys
+  async function getCurrentPublicKeys(): Promise<string[]> {
+    try {
+      return await getRecipientPublicKeys();
+    } catch {
+      return [];
+    }
+  }
+
+  // Clear all recipients and lock session
+  async function clearAllRecipients(): Promise<void> {
+    try {
+      await clearRecipients();
+      setRecipients([]);
+      setIsUnlocked(false);
+    } catch (e) {
+      console.error("Failed to clear recipients:", e);
+    }
+  }
+
+  // Request password from user (opens dialog)
+  function requestPassword(callback?: () => void): void {
+    setPendingUnlockCallback(() => callback || null);
+    setShowPasswordDialog(true);
+  }
+
+  // Handle password dialog confirmation
+  async function handlePasswordConfirm(password: string, saveToKeychain: boolean): Promise<boolean> {
+    const success = await unlockWithPassword(password, saveToKeychain);
+    if (success) {
+      setShowPasswordDialog(false);
+      const callback = pendingUnlockCallback();
+      if (callback) {
+        callback();
+        setPendingUnlockCallback(null);
+      }
+    }
+    return success;
+  }
+
+  // Cancel password dialog
+  function cancelPasswordDialog(): void {
+    setShowPasswordDialog(false);
+    setPendingUnlockCallback(null);
+  }
+
   return {
     // State
     isUnlocked,
@@ -214,6 +332,8 @@ function createEncryptionStore() {
     hasStoredCredentials,
     isLoading,
     error,
+    recipients,
+    showPasswordDialog,
 
     // Actions
     initialize,
@@ -221,10 +341,17 @@ function createEncryptionStore() {
     checkUnlockState,
     unlockWithPassword,
     unlockWithIdentity,
+    setupWithRecipients,
+    addRecipient,
+    getCurrentPublicKeys,
+    clearAllRecipients,
     lock,
     forgetCredentials,
     encrypt,
     decrypt,
+    requestPassword,
+    handlePasswordConfirm,
+    cancelPasswordDialog,
   };
 }
 

@@ -49,12 +49,21 @@ export interface Notebook {
   blocks: NotebookBlock[];
 }
 
-export type EncryptionMethod = "password" | "identityfile";
+export type EncryptionMethod = "password" | "identityfile" | "recipients";
+
+export interface Recipient {
+  id: string;
+  name: string;
+  public_key: string;
+  identity_file?: string;
+  added_at?: string;
+}
 
 export interface EncryptionSettings {
   enabled: boolean;
   method: EncryptionMethod;
   identity_file?: string;
+  recipients?: Recipient[];
 }
 
 export interface InterpreterSettings {
@@ -430,4 +439,33 @@ export async function lockEncryptionSessionWithClear(
   clearKeychain: boolean
 ): Promise<void> {
   return invoke("lock_encryption_session_with_clear", { clearKeychain });
+}
+
+// Multi-recipient encryption operations
+
+export async function getPublicKeyFromIdentityFile(path: string): Promise<string> {
+  return invoke<string>("get_public_key_from_identity_file", { path });
+}
+
+export async function setupRecipientsEncryption(
+  publicKeys: string[],
+  identityPaths: string[]
+): Promise<void> {
+  return invoke("setup_recipients_encryption", { publicKeys, identityPaths });
+}
+
+export async function addRecipientIdentity(path: string): Promise<string> {
+  return invoke<string>("add_recipient_identity", { path });
+}
+
+export async function addRecipientPublicKey(publicKey: string): Promise<void> {
+  return invoke("add_recipient_public_key", { publicKey });
+}
+
+export async function getRecipientPublicKeys(): Promise<string[]> {
+  return invoke<string[]>("get_recipient_public_keys");
+}
+
+export async function clearRecipients(): Promise<void> {
+  return invoke("clear_recipients");
 }

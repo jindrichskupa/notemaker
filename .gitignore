@@ -196,3 +196,11 @@ src-tauri/gen/apple/
 
 # Vitest
 .vitest/
+
+
+.claude/
+ARCHITECTURE.md
+CLAUDE.md
+NOTES.md
+PLAN.md
+requirements/

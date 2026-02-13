@@ -1,8 +1,10 @@
 import { createSignal, Show, onMount, onCleanup, createEffect } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
-import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel } from "./components";
+import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel, SaveAsTemplateDialog, PasswordDialog } from "./components";
 import { VaultSettingsDialog } from "./components/VaultSettingsDialog";
-import { createFromTemplate, type NoteTemplate } from "./lib/templates";
+import { encryptionStore } from "./lib/store/encryption";
+import { createFromTemplate, isNotebookTemplate, processNotebookTemplate, type NoteTemplate } from "./lib/templates";
+import { parseNote } from "./lib/frontmatter/parser";
 import { vaultStore } from "./lib/store/vault";
 import { notebookStore } from "./lib/store/notebook";
 import "./lib/store/theme"; // Initialize theme on load
@@ -119,6 +121,7 @@ function App() {
   const [showShortcutsHelp, setShowShortcutsHelp] = createSignal(false);
   const [showGitPanel, setShowGitPanel] = createSignal(false);
   const [showTemplateDialog, setShowTemplateDialog] = createSignal(false);
+  const [showSaveAsTemplateDialog, setShowSaveAsTemplateDialog] = createSignal(false);
   const [showSettingsPanel, setShowSettingsPanel] = createSignal(false);
   const [showVaultSettingsDialog, setShowVaultSettingsDialog] = createSignal(false);
   const [showSidebar, setShowSidebar] = createSignal(true);
@@ -216,31 +219,45 @@ function App() {
     }
   };
 
-  // Handle creating note from template
+  // Handle creating note or notebook from template
   const handleCreateFromTemplate = async (template: NoteTemplate, name: string) => {
     const vault = vaultStore.vault();
     if (!vault) return;
 
     try {
-      const { content, frontmatter } = createFromTemplate(template, name);
+      // Check if it's a notebook template
+      if (isNotebookTemplate(template)) {
+        // Create notebook from template
+        const blocks = processNotebookTemplate(template, { title: name });
+        const notebookName = name.endsWith(".md") ? name : `${name}.md`;
+        const path = `${vault.path}/${notebookName}`;
 
-      // Create frontmatter YAML
-      const frontmatterYaml = Object.entries(frontmatter)
-        .map(([key, value]) => {
-          if (Array.isArray(value)) {
-            return `${key}:\n${value.map(v => `  - ${v}`).join("\n")}`;
-          }
-          return `${key}: ${value}`;
-        })
-        .join("\n");
+        await notebookStore.createFromTemplate(path, blocks);
+        setShowTemplateDialog(false);
+        await vaultStore.refreshTree();
+        await vaultStore.selectNote(path);
+      } else {
+        // Create note from template
+        const { content, frontmatter } = createFromTemplate(template, name);
 
-      const fullContent = `---\n${frontmatterYaml}\n---\n\n${content}`;
+        // Create frontmatter YAML
+        const frontmatterYaml = Object.entries(frontmatter)
+          .map(([key, value]) => {
+            if (Array.isArray(value)) {
+              return `${key}:\n${value.map(v => `  - ${v}`).join("\n")}`;
+            }
+            return `${key}: ${value}`;
+          })
+          .join("\n");
 
-      const path = await vaultStore.createNote(vault.path, name, fullContent);
-      setShowTemplateDialog(false);
-      await vaultStore.selectNote(path);
+        const fullContent = `---\n${frontmatterYaml}\n---\n\n${content}`;
+
+        const path = await vaultStore.createNote(vault.path, name, fullContent);
+        setShowTemplateDialog(false);
+        await vaultStore.selectNote(path);
+      }
     } catch (err) {
-      console.error("Failed to create note from template:", err);
+      console.error("Failed to create from template:", err);
     }
   };
 
@@ -278,6 +295,11 @@ function App() {
       },
       openSettingsPanel: () => setShowSettingsPanel(true),
       openVaultSettingsDialog: () => setShowVaultSettingsDialog(true),
+      openSaveAsTemplateDialog: () => {
+        if (vaultStore.vault() && vaultStore.currentNote()) {
+          setShowSaveAsTemplateDialog(true);
+        }
+      },
     });
 
     // Register all commands
@@ -471,8 +493,33 @@ function App() {
       {/* Template Dialog */}
       <TemplateDialog
         isOpen={showTemplateDialog()}
+        vaultPath={vaultStore.vault()?.path || null}
         onClose={() => setShowTemplateDialog(false)}
         onSelect={handleCreateFromTemplate}
+      />
+
+      {/* Save As Template Dialog */}
+      <SaveAsTemplateDialog
+        isOpen={showSaveAsTemplateDialog()}
+        vaultPath={vaultStore.vault()?.path || ""}
+        noteContent={parseNote(vaultStore.currentNote()?.content || "").body}
+        suggestedName={vaultStore.currentNote()?.path?.split("/").pop()?.replace(".md", "") || ""}
+        onClose={() => setShowSaveAsTemplateDialog(false)}
+        onSaved={(path) => {
+          console.log("Template saved to:", path);
+          setShowSaveAsTemplateDialog(false);
+        }}
+      />
+
+      {/* Password Dialog for encryption */}
+      <PasswordDialog
+        isOpen={encryptionStore.showPasswordDialog()}
+        title="Unlock Encryption"
+        description="Enter your encryption password to decrypt content."
+        onConfirm={async (password, saveToKeychain) => {
+          await encryptionStore.handlePasswordConfirm(password, saveToKeychain);
+        }}
+        onCancel={() => encryptionStore.cancelPasswordDialog()}
       />
 
       {/* New Note Dialog */}

@@ -1,12 +1,22 @@
 /**
  * Template Selection Dialog
+ *
+ * Supports:
+ * - Built-in templates
+ * - Custom vault templates from .notemaker/templates/
  */
 
-import { createSignal, For, Show } from "solid-js";
-import { getAllTemplates, type NoteTemplate } from "../lib/templates";
+import { createSignal, createEffect, For, Show } from "solid-js";
+import {
+  getAllTemplatesAsync,
+  getTemplateCategories,
+  isNotebookTemplate,
+  type NoteTemplate,
+} from "../lib/templates";
 
 export interface TemplateDialogProps {
   isOpen: boolean;
+  vaultPath: string | null;
   onClose: () => void;
   onSelect: (template: NoteTemplate, name: string) => void;
 }
@@ -14,7 +24,36 @@ export interface TemplateDialogProps {
 export function TemplateDialog(props: TemplateDialogProps) {
   const [selectedTemplate, setSelectedTemplate] = createSignal<NoteTemplate | null>(null);
   const [noteName, setNoteName] = createSignal("");
-  const templates = getAllTemplates();
+  const [templates, setTemplates] = createSignal<NoteTemplate[]>([]);
+  const [isLoading, setIsLoading] = createSignal(false);
+  const [selectedCategory, setSelectedCategory] = createSignal<string | null>(null);
+
+  // Load templates when dialog opens
+  createEffect(() => {
+    if (props.isOpen) {
+      loadTemplates();
+    }
+  });
+
+  const loadTemplates = async () => {
+    setIsLoading(true);
+    try {
+      const allTemplates = await getAllTemplatesAsync(props.vaultPath);
+      setTemplates(allTemplates);
+    } catch (err) {
+      console.error("Failed to load templates:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const categories = () => getTemplateCategories(templates());
+
+  const filteredTemplates = () => {
+    const cat = selectedCategory();
+    if (!cat) return templates();
+    return templates().filter((t) => t.category === cat);
+  };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -29,6 +68,7 @@ export function TemplateDialog(props: TemplateDialogProps) {
       props.onSelect(template, name);
       setSelectedTemplate(null);
       setNoteName("");
+      setSelectedCategory(null);
     }
   };
 
@@ -46,19 +86,26 @@ export function TemplateDialog(props: TemplateDialogProps) {
     }
   };
 
+  const handleClose = () => {
+    setSelectedTemplate(null);
+    setNoteName("");
+    setSelectedCategory(null);
+    props.onClose();
+  };
+
   return (
     <Show when={props.isOpen}>
       <div
         class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-        onClick={(e) => e.target === e.currentTarget && props.onClose()}
+        onClick={(e) => e.target === e.currentTarget && handleClose()}
         onKeyDown={handleKeyDown}
       >
-        <div class="bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-gray-700">
+        <div class="bg-gray-800 rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-gray-700">
           {/* Header */}
           <div class="flex items-center justify-between border-b border-gray-700" style={{ padding: "16px 24px" }}>
             <h2 class="text-lg font-semibold text-gray-100">New from Template</h2>
             <button
-              onClick={props.onClose}
+              onClick={handleClose}
               class="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
@@ -67,28 +114,92 @@ export function TemplateDialog(props: TemplateDialogProps) {
             </button>
           </div>
 
+          {/* Category filter */}
+          <div class="flex items-center border-b border-gray-700 overflow-x-auto" style={{ padding: "12px 24px", gap: "8px" }}>
+            <button
+              onClick={() => setSelectedCategory(null)}
+              class={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
+                selectedCategory() === null
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              All
+            </button>
+            <For each={categories()}>
+              {(category) => (
+                <button
+                  onClick={() => setSelectedCategory(category)}
+                  class={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
+                    selectedCategory() === category
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  {category}
+                </button>
+              )}
+            </For>
+          </div>
+
           {/* Template grid */}
           <div class="flex-1 overflow-y-auto" style={{ padding: "24px" }}>
-            <div class="grid grid-cols-3" style={{ gap: "16px" }}>
-              <For each={templates}>
-                {(template) => (
-                  <button
-                    onClick={() => handleTemplateClick(template)}
-                    style={{ padding: "16px" }}
-                    class={`rounded-lg border text-left transition-all ${
-                      selectedTemplate()?.id === template.id
-                        ? "border-blue-500 bg-blue-500/10"
-                        : "border-gray-700 hover:border-gray-600 hover:bg-gray-700/50"
-                    }`}
-                  >
-                    <div class="text-sm font-medium text-gray-200">{template.name}</div>
-                    <div class="text-xs text-gray-500 line-clamp-2" style={{ "margin-top": "8px" }}>
-                      {template.description}
-                    </div>
-                  </button>
-                )}
-              </For>
-            </div>
+            <Show when={isLoading()}>
+              <div class="flex items-center justify-center py-8">
+                <div class="text-gray-400">Loading templates...</div>
+              </div>
+            </Show>
+
+            <Show when={!isLoading()}>
+              <div class="grid grid-cols-3" style={{ gap: "16px" }}>
+                <For each={filteredTemplates()}>
+                  {(template) => (
+                    <button
+                      onClick={() => handleTemplateClick(template)}
+                      style={{ padding: "16px" }}
+                      class={`rounded-lg border text-left transition-all ${
+                        selectedTemplate()?.id === template.id
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-gray-700 hover:border-gray-600 hover:bg-gray-700/50"
+                      }`}
+                    >
+                      <div class="flex items-center justify-between">
+                        <div class="text-sm font-medium text-gray-200">
+                          {template.icon && <span style={{ "margin-right": "6px" }}>{template.icon}</span>}
+                          {template.name}
+                        </div>
+                        <div class="flex items-center" style={{ gap: "4px" }}>
+                          <Show when={isNotebookTemplate(template)}>
+                            <span class="px-1.5 py-0.5 text-[10px] bg-green-600/30 text-green-300 rounded">
+                              Notebook
+                            </span>
+                          </Show>
+                          <Show when={template.isCustom}>
+                            <span class="px-1.5 py-0.5 text-[10px] bg-purple-600/30 text-purple-300 rounded">
+                              Custom
+                            </span>
+                          </Show>
+                        </div>
+                      </div>
+                      <div class="text-xs text-gray-500 line-clamp-2" style={{ "margin-top": "8px" }}>
+                        {template.description}
+                      </div>
+                      <Show when={template.category}>
+                        <div class="text-[10px] text-gray-600" style={{ "margin-top": "8px" }}>
+                          {template.category}
+                        </div>
+                      </Show>
+                    </button>
+                  )}
+                </For>
+              </div>
+
+              <Show when={filteredTemplates().length === 0}>
+                <div class="text-center py-8 text-gray-500">
+                  No templates in this category
+                </div>
+              </Show>
+            </Show>
           </div>
 
           {/* Footer with name input */}
@@ -100,7 +211,7 @@ export function TemplateDialog(props: TemplateDialogProps) {
                   type="text"
                   value={noteName()}
                   onInput={(e) => setNoteName(e.currentTarget.value)}
-                  placeholder="Note name..."
+                  placeholder={isNotebookTemplate(selectedTemplate()!) ? "Notebook name..." : "Note name..."}
                   class="flex-1 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-100 placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   style={{ padding: "12px 16px" }}
                   onKeyDown={(e) => {

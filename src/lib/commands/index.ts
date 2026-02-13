@@ -23,6 +23,7 @@ let openShortcutsHelp: (() => void) | null = null;
 let openNewNotebookDialog: (() => void) | null = null;
 let openGitPanel: (() => void) | null = null;
 let openTemplateDialog: (() => void) | null = null;
+let openSaveAsTemplateDialog: (() => void) | null = null;
 let openSettingsPanel: (() => void) | null = null;
 let openVaultSettingsDialog: (() => void) | null = null;
 
@@ -39,6 +40,7 @@ export function setUICallbacks(callbacks: {
   openNewNotebookDialog?: () => void;
   openGitPanel?: () => void;
   openTemplateDialog?: () => void;
+  openSaveAsTemplateDialog?: () => void;
   openSettingsPanel?: () => void;
   openVaultSettingsDialog?: () => void;
 }) {
@@ -54,6 +56,7 @@ export function setUICallbacks(callbacks: {
   openNewNotebookDialog = callbacks.openNewNotebookDialog || null;
   openGitPanel = callbacks.openGitPanel || null;
   openTemplateDialog = callbacks.openTemplateDialog || null;
+  openSaveAsTemplateDialog = callbacks.openSaveAsTemplateDialog || null;
   openSettingsPanel = callbacks.openSettingsPanel || null;
   openVaultSettingsDialog = callbacks.openVaultSettingsDialog || null;
 }
@@ -130,6 +133,17 @@ export function registerCommands() {
     category: "File",
     shortcut: "Cmd+Shift+T",
     action: () => openTemplateDialog?.(),
+  });
+
+  commandRegistry.register({
+    id: "template.saveAs",
+    label: "Save as Template",
+    category: "File",
+    action: () => {
+      if (vaultStore.currentNote() && vaultStore.vault()) {
+        openSaveAsTemplateDialog?.();
+      }
+    },
   });
 
   commandRegistry.register({

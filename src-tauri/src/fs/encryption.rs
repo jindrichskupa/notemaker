@@ -1,8 +1,9 @@
 //! Encryption module using age crate for secure encryption of blocks and files.
 //!
-//! Supports two authentication methods:
+//! Supports three authentication methods:
 //! - Password-based encryption (scrypt key derivation)
 //! - Identity file-based encryption (X25519 keys)
+//! - Multi-recipient encryption (multiple X25519 public keys)
 
 use std::io::{Read, Write};
 use std::path::Path;
@@ -32,6 +33,9 @@ pub enum EncryptionError {
     #[error("Invalid identity file: {0}")]
     InvalidIdentityFile(String),
 
+    #[error("Invalid public key: {0}")]
+    InvalidPublicKey(String),
+
     #[error("Session not unlocked")]
     SessionLocked,
 
@@ -43,6 +47,9 @@ pub enum EncryptionError {
 
     #[error("Keychain error: {0}")]
     KeychainError(String),
+
+    #[error("No recipients configured")]
+    NoRecipients,
 }
 
 /// Encryption method configuration
@@ -50,11 +57,15 @@ pub enum EncryptionError {
 pub enum EncryptionMethod {
     Password(String),
     IdentityFile(String),
+    /// Multiple identity files for multi-recipient decryption
+    Recipients(Vec<String>),
 }
 
 /// Session cache for encryption credentials
 pub struct EncryptionSession {
     method: RwLock<Option<EncryptionMethod>>,
+    /// Cached public keys for multi-recipient encryption
+    public_keys: RwLock<Vec<String>>,
 }
 
 impl Default for EncryptionSession {
@@ -67,6 +78,7 @@ impl EncryptionSession {
     pub fn new() -> Self {
         Self {
             method: RwLock::new(None),
+            public_keys: RwLock::new(Vec::new()),
         }
     }
 
@@ -82,10 +94,45 @@ impl EncryptionSession {
         *method = Some(EncryptionMethod::IdentityFile(path));
     }
 
+    /// Set multiple identity files for recipient-based decryption
+    pub fn set_recipient_identities(&self, paths: Vec<String>) {
+        let mut method = self.method.write().unwrap();
+        *method = Some(EncryptionMethod::Recipients(paths));
+    }
+
+    /// Set public keys for multi-recipient encryption
+    pub fn set_public_keys(&self, keys: Vec<String>) {
+        let mut public_keys = self.public_keys.write().unwrap();
+        *public_keys = keys;
+    }
+
+    /// Get public keys for encryption
+    pub fn get_public_keys(&self) -> Vec<String> {
+        let public_keys = self.public_keys.read().unwrap();
+        public_keys.clone()
+    }
+
+    /// Add a single identity file to recipients
+    pub fn add_recipient_identity(&self, path: String) {
+        let mut method = self.method.write().unwrap();
+        match &mut *method {
+            Some(EncryptionMethod::Recipients(paths)) => {
+                if !paths.contains(&path) {
+                    paths.push(path);
+                }
+            }
+            _ => {
+                *method = Some(EncryptionMethod::Recipients(vec![path]));
+            }
+        }
+    }
+
     /// Clear the session (lock)
     pub fn lock(&self) {
         let mut method = self.method.write().unwrap();
         *method = None;
+        let mut public_keys = self.public_keys.write().unwrap();
+        public_keys.clear();
     }
 
     /// Check if session is unlocked
@@ -210,11 +257,110 @@ pub fn decrypt_with_identity_file(ciphertext: &[u8], identity_path: &str) -> Res
     Ok(decrypted)
 }
 
+/// Parse an age public key string
+fn parse_public_key(key: &str) -> Result<age::x25519::Recipient, EncryptionError> {
+    key.parse::<age::x25519::Recipient>()
+        .map_err(|e| EncryptionError::InvalidPublicKey(format!("{}: {}", key, e)))
+}
+
+/// Get public key from identity file
+pub fn get_public_key_from_identity(identity_path: &str) -> Result<String, EncryptionError> {
+    let identity = load_x25519_identity(identity_path)?;
+    Ok(identity.to_public().to_string())
+}
+
+/// Encrypt data for multiple recipients using their public keys
+pub fn encrypt_with_recipients(plaintext: &[u8], public_keys: &[String]) -> Result<Vec<u8>, EncryptionError> {
+    if public_keys.is_empty() {
+        return Err(EncryptionError::NoRecipients);
+    }
+
+    let recipients: Result<Vec<Box<dyn age::Recipient + Send>>, EncryptionError> = public_keys
+        .iter()
+        .map(|key| {
+            let recipient = parse_public_key(key)?;
+            Ok(Box::new(recipient) as Box<dyn age::Recipient + Send>)
+        })
+        .collect();
+
+    let recipients = recipients?;
+
+    let encryptor = age::Encryptor::with_recipients(recipients)
+        .expect("Recipients should not be empty");
+
+    let mut encrypted = vec![];
+    let mut writer = encryptor
+        .wrap_output(&mut encrypted)
+        .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
+
+    writer
+        .write_all(plaintext)
+        .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
+
+    writer
+        .finish()
+        .map_err(|e| EncryptionError::EncryptionFailed(e.to_string()))?;
+
+    Ok(encrypted)
+}
+
+/// Decrypt data using any of the provided identity files
+pub fn decrypt_with_recipient_identities(ciphertext: &[u8], identity_paths: &[String]) -> Result<Vec<u8>, EncryptionError> {
+    if identity_paths.is_empty() {
+        return Err(EncryptionError::NoMatchingKey);
+    }
+
+    // Load all identities
+    let identities: Vec<age::x25519::Identity> = identity_paths
+        .iter()
+        .filter_map(|path| load_x25519_identity(path).ok())
+        .collect();
+
+    if identities.is_empty() {
+        return Err(EncryptionError::NoMatchingKey);
+    }
+
+    let decryptor = match age::Decryptor::new(ciphertext)
+        .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))?
+    {
+        age::Decryptor::Recipients(d) => d,
+        _ => return Err(EncryptionError::DecryptionFailed("Not key-encrypted".to_string())),
+    };
+
+    // Try decrypting with all identities
+    let identity_refs: Vec<&dyn age::Identity> = identities
+        .iter()
+        .map(|i| i as &dyn age::Identity)
+        .collect();
+
+    let mut decrypted = vec![];
+    let mut reader = decryptor
+        .decrypt(identity_refs.into_iter())
+        .map_err(|_| EncryptionError::NoMatchingKey)?;
+
+    reader
+        .read_to_end(&mut decrypted)
+        .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))?;
+
+    Ok(decrypted)
+}
+
 /// Encrypt using session credentials
 pub fn encrypt_with_session(session: &EncryptionSession, plaintext: &[u8]) -> Result<Vec<u8>, EncryptionError> {
+    // First check if we have public keys for multi-recipient encryption
+    let public_keys = session.get_public_keys();
+    if !public_keys.is_empty() {
+        return encrypt_with_recipients(plaintext, &public_keys);
+    }
+
+    // Fall back to single-method encryption
     match session.get_method() {
         Some(EncryptionMethod::Password(password)) => encrypt_with_password(plaintext, &password),
         Some(EncryptionMethod::IdentityFile(path)) => encrypt_with_identity_file(plaintext, &path),
+        Some(EncryptionMethod::Recipients(_)) => {
+            // Recipients mode but no public keys set
+            Err(EncryptionError::NoRecipients)
+        }
         None => Err(EncryptionError::SessionLocked),
     }
 }
@@ -224,6 +370,7 @@ pub fn decrypt_with_session(session: &EncryptionSession, ciphertext: &[u8]) -> R
     match session.get_method() {
         Some(EncryptionMethod::Password(password)) => decrypt_with_password(ciphertext, &password),
         Some(EncryptionMethod::IdentityFile(path)) => decrypt_with_identity_file(ciphertext, &path),
+        Some(EncryptionMethod::Recipients(paths)) => decrypt_with_recipient_identities(ciphertext, &paths),
         None => Err(EncryptionError::SessionLocked),
     }
 }

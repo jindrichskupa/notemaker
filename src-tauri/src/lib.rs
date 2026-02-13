@@ -76,6 +76,13 @@ pub fn run() {
             fs::has_keychain_credentials,
             fs::clear_keychain_credentials,
             fs::lock_encryption_session_with_clear,
+            // Multi-recipient encryption commands
+            fs::get_public_key_from_identity_file,
+            fs::setup_recipients_encryption,
+            fs::add_recipient_identity,
+            fs::add_recipient_public_key,
+            fs::get_recipient_public_keys,
+            fs::clear_recipients,
             // Git commands
             git::git_init,
             git::git_status,

@@ -21,6 +21,7 @@ import {
   getVaultConfig,
 } from "../fs";
 import { vaultStore } from "./vault";
+import type { NotebookBlockDef } from "../templates";
 
 export interface BlockOutput {
   stdout: string;
@@ -83,6 +84,59 @@ function createNotebookStore() {
       const message = err instanceof Error ? err.message : "Failed to create notebook";
       setError(message);
       console.error("Failed to create notebook:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  /**
+   * Create a notebook from template
+   */
+  async function createFromTemplate(path: string, blocks: NotebookBlockDef[]): Promise<void> {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create notebook with first block
+      const firstBlock = blocks[0];
+      const nb = await createNotebook(path);
+
+      // If first block is different from default, change it
+      if (firstBlock && nb.blocks[0]) {
+        const firstBlockId = nb.blocks[0].id;
+        if (firstBlock.type === "code" && firstBlock.language) {
+          await changeBlockType(nb.path, firstBlockId, "code", firstBlock.language);
+        }
+        // Update content
+        await updateNotebookBlock(nb.path, firstBlockId, firstBlock.content);
+      }
+
+      // Add remaining blocks
+      let lastBlockId = nb.blocks[0]?.id;
+      for (let i = 1; i < blocks.length; i++) {
+        const blockDef = blocks[i];
+        const blockType: BlockType = blockDef.type;
+        const newBlock = await addNotebookBlock(
+          nb.path,
+          blockType,
+          blockDef.language,
+          lastBlockId
+        );
+        // Update content
+        await updateNotebookBlock(nb.path, newBlock.id, blockDef.content);
+        lastBlockId = newBlock.id;
+      }
+
+      // Reload the notebook to get fresh state
+      const finalNotebook = await readNotebook(path);
+      setNotebook(finalNotebook);
+      setActiveBlockId(finalNotebook.blocks[0]?.id || null);
+      setDirtyBlocks(new Set<string>());
+      setBlockOutputs({});
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create notebook from template";
+      setError(message);
+      console.error("Failed to create notebook from template:", err);
     } finally {
       setIsLoading(false);
     }
@@ -444,6 +498,7 @@ function createNotebookStore() {
     // Actions
     open,
     create,
+    createFromTemplate,
     close,
     addBlock,
     updateBlockContent,

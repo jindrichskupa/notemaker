@@ -7,6 +7,7 @@ use std::path::PathBuf;
 pub enum EncryptionMethodConfig {
     Password,
     IdentityFile,
+    Recipients,
 }
 
 impl Default for EncryptionMethodConfig {
@@ -15,18 +16,38 @@ impl Default for EncryptionMethodConfig {
     }
 }
 
+/// A recipient for multi-recipient encryption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Recipient {
+    /// Unique identifier for this recipient
+    pub id: String,
+    /// Human-readable name
+    pub name: String,
+    /// age public key (age1...)
+    pub public_key: String,
+    /// Optional path to identity file (for local decryption)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity_file: Option<String>,
+    /// When this recipient was added
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub added_at: Option<String>,
+}
+
 /// Encryption settings for the vault
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptionSettings {
     /// Whether encryption is enabled
     #[serde(default)]
     pub enabled: bool,
-    /// Encryption method (password or identity file)
+    /// Encryption method (password, identity file, or recipients)
     #[serde(default)]
     pub method: EncryptionMethodConfig,
     /// Path to identity file (when using IdentityFile method)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identity_file: Option<String>,
+    /// List of recipients for multi-recipient encryption
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipients: Vec<Recipient>,
 }
 
 impl Default for EncryptionSettings {
@@ -35,6 +56,7 @@ impl Default for EncryptionSettings {
             enabled: false,
             method: EncryptionMethodConfig::Password,
             identity_file: None,
+            recipients: Vec::new(),
         }
     }
 }

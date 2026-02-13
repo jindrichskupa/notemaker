@@ -67,7 +67,13 @@ export type { GitStatusIndicatorProps } from "./GitStatusIndicator";
 export { TemplateDialog } from "./TemplateDialog";
 export type { TemplateDialogProps } from "./TemplateDialog";
 
+export { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
+export type { SaveAsTemplateDialogProps } from "./SaveAsTemplateDialog";
+
 export { VaultSwitcher } from "./VaultSwitcher";
 export type { VaultSwitcherProps } from "./VaultSwitcher";
+
+export { PasswordDialog } from "./PasswordDialog";
+export type { PasswordDialogProps } from "./PasswordDialog";
 
 export * from "./Icons";
