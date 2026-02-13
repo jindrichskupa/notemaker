@@ -2,11 +2,12 @@
 
 All notable changes to Notemaker will be documented in this file.
 
-## [0.2.1] - 2026-02-13
+## [0.2.2] - 2026-02-13
 
 ### Fixes
 - **macOS Build** - Ad-hoc code signing to prevent "damaged app" error
 - **Release Notes** - Added installation instructions for all platforms
+- **Version Sync** - Fixed version mismatch in build artifacts
 
 ---
 
