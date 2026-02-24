@@ -318,6 +318,16 @@ pub fn get_public_key_from_identity_file(path: String) -> Result<String, String>
         .map_err(|e| e.to_string())
 }
 
+/// Generate a new age identity file
+#[tauri::command]
+pub fn generate_identity_file(path: String) -> Result<String, String> {
+    use super::encryption::generate_identity;
+
+    let expanded_path = expand_tilde(&path);
+    generate_identity(&expanded_path.to_string_lossy())
+        .map_err(|e| e.to_string())
+}
+
 /// Setup session for multi-recipient encryption
 /// public_keys: list of age public keys to encrypt to
 /// identity_paths: list of identity file paths for decryption (optional, for local decryption)

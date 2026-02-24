@@ -269,6 +269,48 @@ pub fn get_public_key_from_identity(identity_path: &str) -> Result<String, Encry
     Ok(identity.to_public().to_string())
 }
 
+/// Generate a new age X25519 identity and save to file
+/// Returns the public key as a string
+pub fn generate_identity(path: &str) -> Result<String, EncryptionError> {
+    use std::fs;
+    use std::path::Path;
+    use age::secrecy::ExposeSecret;
+
+    let path = Path::new(path);
+
+    // Create parent directory if it doesn't exist
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    // Generate new identity
+    let identity = age::x25519::Identity::generate();
+    let public_key = identity.to_public();
+
+    // Format the identity file content
+    let content = format!(
+        "# created: {}\n# public key: {}\n{}\n",
+        chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
+        public_key,
+        identity.to_string().expose_secret()
+    );
+
+    // Write to file
+    fs::write(path, content)?;
+
+    // Set restrictive permissions on Unix (owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(path, permissions)?;
+    }
+
+    Ok(public_key.to_string())
+}
+
 /// Encrypt data for multiple recipients using their public keys
 pub fn encrypt_with_recipients(plaintext: &[u8], public_keys: &[String]) -> Result<Vec<u8>, EncryptionError> {
     if public_keys.is_empty() {

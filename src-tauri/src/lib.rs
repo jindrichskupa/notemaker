@@ -78,6 +78,7 @@ pub fn run() {
             fs::lock_encryption_session_with_clear,
             // Multi-recipient encryption commands
             fs::get_public_key_from_identity_file,
+            fs::generate_identity_file,
             fs::setup_recipients_encryption,
             fs::add_recipient_identity,
             fs::add_recipient_public_key,
