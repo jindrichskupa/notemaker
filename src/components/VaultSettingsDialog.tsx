@@ -7,6 +7,7 @@ import { createSignal, Show, createEffect, For } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { vaultStore } from "../lib/store/vault";
 import { getVaultConfig, saveVaultConfig, VaultConfig, Recipient, getPublicKeyFromIdentityFile, EncryptionMethod } from "../lib/fs";
+import { GenerateIdentityDialog } from "./GenerateIdentityDialog";
 
 export interface VaultSettingsDialogProps {
   isOpen: boolean;
@@ -319,6 +320,7 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
   const [ownPublicKey, setOwnPublicKey] = createSignal<string | null>(null);
   const [loadingOwnKey, setLoadingOwnKey] = createSignal(false);
   const [copyFeedback, setCopyFeedback] = createSignal(false);
+  const [showGenerateDialog, setShowGenerateDialog] = createSignal(false);
 
   // Load own public key when identity path is set
   createEffect(async () => {
@@ -543,6 +545,24 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
                 <div class="text-xs text-gray-500">Loading public key...</div>
               </Show>
             </SettingGroup>
+
+            <button
+              onClick={() => setShowGenerateDialog(true)}
+              class="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              style={{ "margin-top": "8px" }}
+            >
+              + Generate New Identity...
+            </button>
+
+            <GenerateIdentityDialog
+              isOpen={showGenerateDialog()}
+              onClose={() => setShowGenerateDialog(false)}
+              onGenerated={(generatedPath, publicKey) => {
+                setOwnIdentityPath(generatedPath);
+                setOwnPublicKey(publicKey);
+                props.onUpdate("encryption", "own_identity", generatedPath);
+              }}
+            />
 
             <div style={{ "margin-top": "16px" }}>
               <div class="text-sm text-gray-300 font-medium" style={{ "margin-bottom": "12px" }}>
