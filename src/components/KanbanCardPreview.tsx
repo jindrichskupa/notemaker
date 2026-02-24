@@ -4,14 +4,16 @@ import { renderMarkdownSync } from "../lib/markdown/renderer";
 interface KanbanCardPreviewProps {
   content: string;
   maxLength?: number;
+  maxLines?: number;
   onCheckboxToggle?: (newContent: string) => void;
 }
 
 export function KanbanCardPreview(props: KanbanCardPreviewProps) {
-  // Truncate content for preview (by lines, not chars, to preserve markdown structure)
+  // Truncate content for preview (by lines to preserve markdown structure)
   const truncatedContent = createMemo(() => {
-    const maxLen = props.maxLength || 200;
-    const lines = props.content.split('\n').slice(0, 5); // Max 5 lines
+    const maxLen = props.maxLength || 500;
+    const maxLines = props.maxLines || 10;
+    const lines = props.content.split('\n').slice(0, maxLines);
     let result = lines.join('\n');
     if (result.length > maxLen) {
       result = result.slice(0, maxLen);
@@ -49,10 +51,6 @@ export function KanbanCardPreview(props: KanbanCardPreviewProps) {
       class="kanban-card-preview text-xs text-gray-400"
       innerHTML={html()}
       onClick={handleClick}
-      style={{
-        "max-height": "60px",
-        overflow: "hidden",
-      }}
     />
   );
 }

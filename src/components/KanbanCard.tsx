@@ -88,7 +88,8 @@ export function KanbanCard(props: KanbanCardProps) {
         <div style={{ "margin-top": "8px" }}>
           <KanbanCardPreview
             content={props.task.description}
-            maxLength={150}
+            maxLength={500}
+            maxLines={15}
             onCheckboxToggle={props.onDescriptionChange}
           />
         </div>
