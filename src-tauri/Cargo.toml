@@ -1,6 +1,6 @@
 [package]
 name = "notemaker"
-version = "0.2.2"
+version = "0.3.0"
 description = "Developer notes application"
 authors = ["Notemaker Team"]
 edition = "2021"
