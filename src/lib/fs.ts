@@ -81,8 +81,8 @@ export interface Kanban {
 export interface TaskUpdates {
   title?: string;
   status?: TaskStatus;
-  priority?: TaskPriority;
-  due?: string;
+  priority?: TaskPriority | "";  // Empty string clears the field
+  due?: string;                   // Empty string clears the field
   description?: string;
 }
 

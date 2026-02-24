@@ -1341,11 +1341,12 @@ pub async fn update_kanban_task(
     if let Some(status) = updates.status {
         task.status = status;
     }
+    // Empty string means "clear the field"
     if let Some(priority) = updates.priority {
-        task.priority = Some(priority);
+        task.priority = if priority.is_empty() { None } else { Some(priority) };
     }
     if let Some(due) = updates.due {
-        task.due = Some(due);
+        task.due = if due.is_empty() { None } else { Some(due) };
     }
 
     // Update timestamp

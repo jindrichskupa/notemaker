@@ -36,15 +36,6 @@ export function KanbanCard(props: KanbanCardProps) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Padding based on density
-  const getPadding = () => {
-    switch (props.density) {
-      case "compact": return "4px 8px";
-      case "standard": return "8px 10px";
-      case "detailed": return "10px 12px";
-    }
-  };
-
   return (
     <div
       ref={draggable.ref}
@@ -52,12 +43,12 @@ export function KanbanCard(props: KanbanCardProps) {
       class={`bg-gray-700 rounded border border-gray-600 cursor-grab active:cursor-grabbing transition-all ${
         props.isSelected ? "ring-2 ring-blue-500" : ""
       } ${props.task.priority ? `border-l-2 ${priorityColors[props.task.priority]}` : ""}`}
-      style={{ padding: getPadding(), "margin-bottom": "6px" }}
+      style={{ padding: "8px 10px", "margin-bottom": "6px" }}
       onClick={() => props.onClick()}
       onDblClick={() => props.onDoubleClick()}
     >
-      {/* Title - always shown */}
-      <div class={`text-gray-200 font-medium ${props.density === "compact" ? "text-xs" : "text-sm"}`}>
+      {/* Title - always shown, same size for all densities */}
+      <div class="text-sm text-gray-200 font-medium">
         {props.task.title}
       </div>
 
