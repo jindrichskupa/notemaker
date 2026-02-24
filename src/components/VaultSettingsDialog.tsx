@@ -313,7 +313,7 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
   const [identityPath, setIdentityPath] = createSignal(props.config.encryption?.identity_file || "");
   const [recipients, setRecipients] = createSignal<Recipient[]>(props.config.encryption?.recipients || []);
   const [newRecipientName, setNewRecipientName] = createSignal("");
-  const [newRecipientPath, setNewRecipientPath] = createSignal("");
+  const [newRecipientPublicKey, setNewRecipientPublicKey] = createSignal("");
   const [addingRecipient, setAddingRecipient] = createSignal(false);
   const [recipientError, setRecipientError] = createSignal<string | null>(null);
   const [ownIdentityPath, setOwnIdentityPath] = createSignal(props.config.encryption?.own_identity || "");
@@ -371,26 +371,26 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
     }
   };
 
-  const handleBrowseRecipientIdentity = async () => {
-    const file = await open({
-      multiple: false,
-      title: "Select Age Identity File for Recipient",
-    });
-    if (file) {
-      setNewRecipientPath(file);
-    }
-  };
-
   const handleAddRecipient = async () => {
     const name = newRecipientName().trim();
-    const path = newRecipientPath().trim();
+    const publicKey = newRecipientPublicKey().trim();
 
     if (!name) {
       setRecipientError("Name is required");
       return;
     }
-    if (!path) {
-      setRecipientError("Identity file path is required");
+    if (!publicKey) {
+      setRecipientError("Public key is required");
+      return;
+    }
+    if (!publicKey.startsWith("age1")) {
+      setRecipientError("Invalid public key format. Must start with 'age1'");
+      return;
+    }
+
+    // Check for duplicates
+    if (recipients().some(r => r.public_key === publicKey)) {
+      setRecipientError("This recipient has already been added");
       return;
     }
 
@@ -398,13 +398,10 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
     setRecipientError(null);
 
     try {
-      const publicKey = await getPublicKeyFromIdentityFile(path);
-
       const newRecipient: Recipient = {
         id: `recipient-${Date.now()}`,
         name,
         public_key: publicKey,
-        identity_file: path,
         added_at: new Date().toISOString(),
       };
 
@@ -414,7 +411,7 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
 
       // Clear form
       setNewRecipientName("");
-      setNewRecipientPath("");
+      setNewRecipientPublicKey("");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setRecipientError(`Failed to add recipient: ${msg}`);
@@ -620,31 +617,22 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
                       type="text"
                       value={newRecipientName()}
                       onInput={(e) => setNewRecipientName(e.currentTarget.value)}
-                      placeholder="e.g., Work Laptop"
+                      placeholder="e.g., Alice"
                       class="w-full bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
                       style={{ padding: "6px 10px" }}
                     />
                   </div>
 
                   <div>
-                    <label class="block text-xs text-gray-400" style={{ "margin-bottom": "4px" }}>Identity File</label>
-                    <div class="flex" style={{ gap: "8px" }}>
-                      <input
-                        type="text"
-                        value={newRecipientPath()}
-                        onInput={(e) => setNewRecipientPath(e.currentTarget.value)}
-                        placeholder="~/.age/key.txt"
-                        class="flex-1 bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
-                        style={{ padding: "6px 10px" }}
-                      />
-                      <button
-                        onClick={handleBrowseRecipientIdentity}
-                        class="text-sm bg-gray-700 border border-gray-600 hover:bg-gray-600 rounded transition-colors"
-                        style={{ padding: "6px 12px" }}
-                      >
-                        Browse
-                      </button>
-                    </div>
+                    <label class="block text-xs text-gray-400" style={{ "margin-bottom": "4px" }}>Public Key</label>
+                    <input
+                      type="text"
+                      value={newRecipientPublicKey()}
+                      onInput={(e) => setNewRecipientPublicKey(e.currentTarget.value)}
+                      placeholder="age1..."
+                      class="w-full bg-gray-700 border border-gray-600 rounded text-sm text-gray-200 font-mono"
+                      style={{ padding: "6px 10px" }}
+                    />
                   </div>
 
                   <Show when={recipientError()}>
@@ -653,7 +641,7 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
 
                   <button
                     onClick={handleAddRecipient}
-                    disabled={addingRecipient() || !newRecipientName().trim() || !newRecipientPath().trim()}
+                    disabled={addingRecipient() || !newRecipientName().trim() || !newRecipientPublicKey().trim()}
                     class="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
                     style={{ padding: "8px 16px" }}
                   >
@@ -662,7 +650,7 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
                 </div>
 
                 <div class="text-xs text-gray-500" style={{ "margin-top": "12px" }}>
-                  Generate a new key with: <code class="bg-gray-700 rounded" style={{ padding: "0 4px" }}>age-keygen -o key.txt</code>
+                  Ask collaborators for their public key (starts with <code class="bg-gray-700 rounded" style={{ padding: "0 4px" }}>age1</code>)
                 </div>
               </div>
             </div>
