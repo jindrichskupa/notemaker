@@ -5,7 +5,7 @@
  * Markdown is the default language with rich text editing.
  */
 
-import { For, Index, Show, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { notebookStore } from "../lib/store/notebook";
 import { BlockType } from "../lib/fs";
 import { NotebookBlock } from "./NotebookBlock";
@@ -207,35 +207,34 @@ export function NotebookEditor(_props: NotebookEditorProps) {
             </div>
           }
         >
-          <Index each={blocks()}>
+          <For each={blocks()}>
             {(block, index) => (
               <>
-                <Show when={index === 0}>
+                <Show when={index() === 0}>
                   <AddBlockButton />
                 </Show>
 
                 <NotebookBlock
-                  id={block().id}
+                  id={block.id}
                   notebookPath={notebook()?.path || ""}
-                  onRunCode={() => handleRunCode(block().id)}
+                  onRunCode={() => handleRunCode(block.id)}
                   onAddBlockBelow={() => {
                     // Inherit language from current block, default to markdown
-                    const currentBlock = block();
-                    const language = currentBlock.language || "markdown";
-                    handleAddBlock(language, currentBlock.id);
+                    const language = block.language || "markdown";
+                    handleAddBlock(language, block.id);
                   }}
-                  onDelete={() => handleDeleteBlock(block().id)}
-                  onMoveUp={() => handleMoveBlock(block().id, "up")}
-                  onMoveDown={() => handleMoveBlock(block().id, "down")}
-                  onChangeLanguage={(lang) => handleChangeLanguage(block().id, lang)}
-                  isFirst={index === 0}
-                  isLast={index === blocks().length - 1}
+                  onDelete={() => handleDeleteBlock(block.id)}
+                  onMoveUp={() => handleMoveBlock(block.id, "up")}
+                  onMoveDown={() => handleMoveBlock(block.id, "down")}
+                  onChangeLanguage={(lang) => handleChangeLanguage(block.id, lang)}
+                  isFirst={index() === 0}
+                  isLast={index() === blocks().length - 1}
                 />
 
-                <AddBlockButton afterBlockId={block().id} />
+                <AddBlockButton afterBlockId={block.id} />
               </>
             )}
-          </Index>
+          </For>
         </Show>
       </div>
 

@@ -19,9 +19,30 @@ export function KanbanCard(props: KanbanCardProps) {
     low: "border-l-blue-500",
   };
 
+  const priorityBadgeColors: Record<string, string> = {
+    high: "bg-red-500/20 text-red-400",
+    medium: "bg-yellow-500/20 text-yellow-400",
+    low: "bg-blue-500/20 text-blue-400",
+  };
+
   const isOverdue = () => {
     if (!props.task.due) return false;
     return new Date(props.task.due) < new Date();
+  };
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Padding based on density
+  const getPadding = () => {
+    switch (props.density) {
+      case "compact": return "4px 8px";
+      case "standard": return "8px 10px";
+      case "detailed": return "10px 12px";
+    }
   };
 
   return (
@@ -31,35 +52,64 @@ export function KanbanCard(props: KanbanCardProps) {
       class={`bg-gray-700 rounded border border-gray-600 cursor-grab active:cursor-grabbing transition-all ${
         props.isSelected ? "ring-2 ring-blue-500" : ""
       } ${props.task.priority ? `border-l-2 ${priorityColors[props.task.priority]}` : ""}`}
-      style={{ padding: "8px 10px", "margin-bottom": "6px" }}
+      style={{ padding: getPadding(), "margin-bottom": "6px" }}
       onClick={() => props.onClick()}
       onDblClick={() => props.onDoubleClick()}
     >
       {/* Title - always shown */}
-      <div class="text-sm text-gray-200 font-medium">{props.task.title}</div>
+      <div class={`text-gray-200 font-medium ${props.density === "compact" ? "text-xs" : "text-sm"}`}>
+        {props.task.title}
+      </div>
 
-      {/* Standard density: show due date and priority */}
-      <Show when={props.density !== "compact" && (props.task.due || props.task.priority)}>
-        <div class="flex items-center" style={{ gap: "8px", "margin-top": "4px" }}>
-          <Show when={props.task.due}>
-            <span class={`text-xs ${isOverdue() ? "text-red-400" : "text-gray-400"}`}>
-              {props.task.due}
-            </span>
-          </Show>
+      {/* Standard & Detailed: show metadata row */}
+      <Show when={props.density !== "compact"}>
+        <div class="flex items-center flex-wrap" style={{ gap: "6px", "margin-top": "6px" }}>
+          {/* Priority badge */}
           <Show when={props.task.priority}>
-            <span class="text-xs text-gray-500 capitalize">
+            <span
+              class={`text-xs rounded-full capitalize ${priorityBadgeColors[props.task.priority!]}`}
+              style={{ padding: "2px 8px" }}
+            >
               {props.task.priority}
             </span>
+          </Show>
+
+          {/* Due date badge */}
+          <Show when={props.task.due}>
+            <span
+              class={`text-xs rounded-full ${
+                isOverdue()
+                  ? "bg-red-500/20 text-red-400"
+                  : "bg-gray-600 text-gray-400"
+              }`}
+              style={{ padding: "2px 8px" }}
+            >
+              {formatDate(props.task.due!)}
+            </span>
+          </Show>
+
+          {/* No metadata indicator */}
+          <Show when={!props.task.priority && !props.task.due && !props.task.description}>
+            <span class="text-xs text-gray-500 italic">Click to edit</span>
           </Show>
         </div>
       </Show>
 
       {/* Detailed density: show description preview */}
-      <Show when={props.density === "detailed" && props.task.description}>
-        <p class="text-xs text-gray-400 line-clamp-2" style={{ "margin-top": "8px" }}>
-          {props.task.description.slice(0, 100)}
-          {props.task.description.length > 100 ? "..." : ""}
-        </p>
+      <Show when={props.density === "detailed"}>
+        <Show
+          when={props.task.description}
+          fallback={
+            <p class="text-xs text-gray-500 italic" style={{ "margin-top": "8px" }}>
+              No description
+            </p>
+          }
+        >
+          <p class="text-xs text-gray-400 line-clamp-2" style={{ "margin-top": "8px" }}>
+            {props.task.description.slice(0, 100)}
+            {props.task.description.length > 100 ? "..." : ""}
+          </p>
+        </Show>
       </Show>
     </div>
   );
