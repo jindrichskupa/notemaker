@@ -447,6 +447,10 @@ export async function getPublicKeyFromIdentityFile(path: string): Promise<string
   return invoke<string>("get_public_key_from_identity_file", { path });
 }
 
+export async function generateIdentityFile(path: string): Promise<string> {
+  return invoke<string>("generate_identity_file", { path });
+}
+
 export async function setupRecipientsEncryption(
   publicKeys: string[],
   identityPaths: string[]
