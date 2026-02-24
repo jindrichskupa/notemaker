@@ -455,7 +455,7 @@ function createVaultStore() {
     return undefined;
   }
 
-  // Get all notes for quick search (includes both files and notebooks)
+  // Get all notes for quick search (includes files, notebooks, and kanbans)
   function getAllNotes(): TreeNode[] {
     const notes: TreeNode[] = [];
 
@@ -468,9 +468,17 @@ function createVaultStore() {
         // Include notebooks (folders ending with .md)
         if (node.type === "folder" && node.name.endsWith(".md")) {
           notes.push(node);
+          // Don't recurse into notebooks
+          continue;
         }
-        // Recurse into regular folders (not notebooks)
-        if (node.children && !(node.type === "folder" && node.name.endsWith(".md"))) {
+        // Include kanbans (folders ending with .kanban)
+        if (node.type === "folder" && node.name.endsWith(".kanban")) {
+          notes.push(node);
+          // Don't recurse into kanbans
+          continue;
+        }
+        // Recurse into regular folders
+        if (node.children) {
           collect(node.children);
         }
       }

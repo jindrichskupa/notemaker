@@ -5,7 +5,7 @@
 import { createSignal, createMemo, For, Show, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { vaultStore, TreeNode } from "../lib/store/vault";
-import { SearchIcon, MarkdownIcon, FolderIcon } from "./Icons";
+import { SearchIcon, MarkdownIcon, FolderIcon, NotebookIcon, KanbanIcon } from "./Icons";
 
 export interface QuickOpenProps {
   isOpen: boolean;
@@ -117,12 +117,26 @@ export function QuickOpen(props: QuickOpenProps) {
     }
   });
 
-  // Get display name (without .md)
+  // Get display name (without extension)
   const getDisplayName = (note: TreeNode) => {
     if (note.name.endsWith(".md")) {
       return note.name.slice(0, -3);
     }
+    if (note.name.endsWith(".kanban")) {
+      return note.name.slice(0, -7);
+    }
     return note.name;
+  };
+
+  // Get icon based on file type
+  const getIcon = (note: TreeNode) => {
+    if (note.type === "folder" && note.name.endsWith(".kanban")) {
+      return <KanbanIcon class="text-purple-500 flex-shrink-0" size={16} />;
+    }
+    if (note.type === "folder" && note.name.endsWith(".md")) {
+      return <NotebookIcon class="text-green-500 flex-shrink-0" size={16} />;
+    }
+    return <MarkdownIcon class="text-gray-500 flex-shrink-0" size={16} />;
   };
 
   // Get relative path for display
@@ -151,7 +165,7 @@ export function QuickOpen(props: QuickOpenProps) {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Search notes..."
+                placeholder="Search notes, notebooks, kanbans..."
                 class="flex-1 bg-transparent text-gray-100 text-base placeholder-gray-500 outline-none"
                 autocomplete="off"
                 autocapitalize="off"
@@ -174,9 +188,9 @@ export function QuickOpen(props: QuickOpenProps) {
                   <div class="px-4 py-8 text-center text-gray-500">
                     <Show
                       when={vaultStore.vault()}
-                      fallback="Open a vault to search notes"
+                      fallback="Open a vault to search"
                     >
-                      No notes found
+                      No items found
                     </Show>
                   </div>
                 }
@@ -193,7 +207,7 @@ export function QuickOpen(props: QuickOpenProps) {
                       onClick={() => selectNote(note)}
                       onMouseEnter={() => setSelectedIndex(index())}
                     >
-                      <MarkdownIcon class="text-gray-500 flex-shrink-0" size={16} />
+                      {getIcon(note)}
                       <div class="flex-1 min-w-0">
                         <div class="truncate font-medium">
                           {getDisplayName(note)}
