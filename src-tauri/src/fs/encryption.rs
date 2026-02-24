@@ -590,4 +590,55 @@ mod tests {
         session.lock();
         assert!(!session.is_unlocked());
     }
+
+    #[test]
+    fn test_generate_identity_creates_valid_file() {
+        use tempfile::tempdir;
+
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("test-key.txt");
+
+        let public_key = super::generate_identity(path.to_str().unwrap()).unwrap();
+
+        // Public key should start with "age1"
+        assert!(public_key.starts_with("age1"), "Public key should start with age1");
+
+        // File should exist
+        assert!(path.exists(), "Identity file should be created");
+
+        // Should be able to load the identity back
+        let loaded_public = super::get_public_key_from_identity(path.to_str().unwrap()).unwrap();
+        assert_eq!(public_key, loaded_public, "Loaded public key should match");
+    }
+
+    #[test]
+    fn test_generate_identity_creates_parent_dirs() {
+        use tempfile::tempdir;
+
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("nested/dir/key.txt");
+
+        let result = super::generate_identity(path.to_str().unwrap());
+        assert!(result.is_ok(), "Should create parent directories");
+        assert!(path.exists(), "File should exist in nested directory");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_generate_identity_sets_restrictive_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        use tempfile::tempdir;
+
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("secure-key.txt");
+
+        super::generate_identity(path.to_str().unwrap()).unwrap();
+
+        let metadata = std::fs::metadata(&path).unwrap();
+        let mode = metadata.permissions().mode();
+
+        // Check that only owner has read/write (0o600)
+        // The mode includes file type bits, so mask with 0o777 to get just permission bits
+        assert_eq!(mode & 0o777, 0o600, "Identity file should have 0600 permissions");
+    }
 }
