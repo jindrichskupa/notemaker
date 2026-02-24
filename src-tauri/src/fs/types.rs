@@ -333,3 +333,81 @@ impl Default for VaultConfig {
         }
     }
 }
+
+// Kanban types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanbanTask {
+    pub id: String,
+    pub title: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
+    pub created: String,
+    pub updated: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanbanSettings {
+    #[serde(default = "default_card_density")]
+    pub card_density: String,
+    #[serde(default)]
+    pub show_closed: bool,
+}
+
+fn default_card_density() -> String {
+    "standard".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanbanIndex {
+    pub version: u32,
+    pub columns: Vec<String>,
+    pub tasks: Vec<KanbanTask>,
+    #[serde(default)]
+    pub settings: KanbanSettings,
+}
+
+impl Default for KanbanSettings {
+    fn default() -> Self {
+        Self {
+            card_density: "standard".to_string(),
+            show_closed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Kanban {
+    pub path: String,
+    pub name: String,
+    pub tasks: Vec<KanbanTaskWithContent>,
+    pub settings: KanbanSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanbanTaskWithContent {
+    pub id: String,
+    pub title: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
+    pub created: String,
+    pub updated: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskUpdates {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
+}
