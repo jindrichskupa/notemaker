@@ -80,8 +80,8 @@ export interface Kanban {
 
 export interface TaskUpdates {
   title?: string;
-  status?: string;
-  priority?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
   due?: string;
   description?: string;
 }
@@ -340,7 +340,7 @@ export async function updateKanbanSettings(
 }
 
 export function isKanban(path: string): boolean {
-  return path.endsWith('.kanban') || path.includes('.kanban/');
+  return path.endsWith('.kanban');
 }
 
 // Note conversion
