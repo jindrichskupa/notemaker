@@ -55,6 +55,14 @@ pub fn run() {
             fs::terminate_code_block,
             // Note conversion
             fs::convert_note_to_notebook,
+            // Kanban commands
+            fs::create_kanban,
+            fs::read_kanban,
+            fs::add_kanban_task,
+            fs::update_kanban_task,
+            fs::delete_kanban_task,
+            fs::update_task_description,
+            fs::update_kanban_settings,
             // File watcher commands
             fs::start_watching,
             fs::stop_watching,

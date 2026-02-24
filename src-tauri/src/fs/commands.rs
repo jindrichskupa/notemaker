@@ -4,8 +4,9 @@ use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 
 use super::types::{
-    BlockType, FileEntry, LocalState, NoteContent, Notebook, NotebookBlock, NotebookBlockWithContent,
-    NotebookIndex, VaultConfig, VaultInfo,
+    BlockType, FileEntry, Kanban, KanbanIndex, KanbanSettings, KanbanTask, KanbanTaskWithContent,
+    LocalState, NoteContent, Notebook, NotebookBlock, NotebookBlockWithContent, NotebookIndex,
+    TaskUpdates, VaultConfig, VaultInfo,
 };
 
 /// Error type for file system operations
@@ -1123,4 +1124,309 @@ fn parse_markdown_blocks(content: &str) -> Vec<ParsedMarkdownBlock> {
     }
 
     blocks
+}
+
+// =============================================================================
+// Kanban Operations
+// =============================================================================
+
+const KANBAN_INDEX_FILE: &str = ".index.json";
+const DEFAULT_COLUMNS: [&str; 5] = ["backlog", "ready", "working", "done", "closed"];
+
+/// Check if a path is a kanban board (directory ending with .kanban)
+pub fn is_kanban(path: &Path) -> bool {
+    path.is_dir() && path.extension().map_or(false, |ext| ext == "kanban")
+}
+
+/// Read kanban index
+fn read_kanban_index(kanban_path: &Path) -> Result<KanbanIndex, FsError> {
+    let index_path = kanban_path.join(KANBAN_INDEX_FILE);
+    let content = fs::read_to_string(&index_path)?;
+    let index: KanbanIndex = serde_json::from_str(&content)
+        .map_err(|e| FsError::InvalidPath(format!("Invalid kanban index: {}", e)))?;
+    Ok(index)
+}
+
+/// Write kanban index
+fn write_kanban_index(kanban_path: &Path, index: &KanbanIndex) -> Result<(), FsError> {
+    let index_path = kanban_path.join(KANBAN_INDEX_FILE);
+    let content = serde_json::to_string_pretty(index)
+        .map_err(|e| FsError::InvalidPath(format!("Failed to serialize kanban index: {}", e)))?;
+    fs::write(&index_path, content)?;
+    Ok(())
+}
+
+/// Generate a unique task ID
+fn generate_task_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    format!("{:x}", timestamp)
+}
+
+/// Get the file path for a task's description
+fn get_task_file_path(kanban_path: &Path, task_id: &str) -> PathBuf {
+    kanban_path.join(format!("{}.md", task_id))
+}
+
+/// Create a new kanban board
+#[tauri::command]
+pub async fn create_kanban(path: PathBuf, title: Option<String>) -> Result<Kanban, FsError> {
+    if path.exists() {
+        return Err(FsError::InvalidPath("Path already exists".to_string()));
+    }
+
+    // Create kanban directory
+    fs::create_dir_all(&path)?;
+
+    let name = title.unwrap_or_else(|| {
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.trim_end_matches(".kanban").to_string())
+            .unwrap_or_else(|| "Untitled".to_string())
+    });
+
+    // Create default index with default columns
+    let index = KanbanIndex {
+        version: 1,
+        columns: DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect(),
+        tasks: vec![],
+        settings: KanbanSettings::default(),
+    };
+    write_kanban_index(&path, &index)?;
+
+    Ok(Kanban {
+        path,
+        name,
+        tasks: vec![],
+        settings: index.settings,
+    })
+}
+
+/// Read a kanban board and all its tasks
+#[tauri::command]
+pub async fn read_kanban(path: PathBuf) -> Result<Kanban, FsError> {
+    if !is_kanban(&path) {
+        return Err(FsError::InvalidPath("Not a kanban board".to_string()));
+    }
+
+    let index = read_kanban_index(&path)?;
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.trim_end_matches(".kanban").to_string())
+        .unwrap_or_else(|| "Untitled".to_string());
+
+    let mut tasks = Vec::new();
+    for task in &index.tasks {
+        let task_path = get_task_file_path(&path, &task.id);
+        let description = if task_path.exists() {
+            fs::read_to_string(&task_path)?
+        } else {
+            String::new()
+        };
+
+        tasks.push(KanbanTaskWithContent {
+            id: task.id.clone(),
+            title: task.title.clone(),
+            status: task.status.clone(),
+            priority: task.priority.clone(),
+            due: task.due.clone(),
+            created: task.created.clone(),
+            updated: task.updated.clone(),
+            description,
+        });
+    }
+
+    Ok(Kanban {
+        path,
+        name,
+        tasks,
+        settings: index.settings,
+    })
+}
+
+/// Add a new task to a kanban board
+#[tauri::command]
+pub async fn add_kanban_task(
+    kanban_path: PathBuf,
+    title: String,
+    status: Option<String>,
+    priority: Option<String>,
+    due: Option<String>,
+    description: Option<String>,
+) -> Result<KanbanTaskWithContent, FsError> {
+    let mut index = read_kanban_index(&kanban_path)?;
+
+    let task_id = generate_task_id();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Use first column as default status if not specified
+    let task_status = status.unwrap_or_else(|| {
+        index.columns.first().cloned().unwrap_or_else(|| "backlog".to_string())
+    });
+
+    let task = KanbanTask {
+        id: task_id.clone(),
+        title: title.clone(),
+        status: task_status.clone(),
+        priority: priority.clone(),
+        due: due.clone(),
+        created: now.clone(),
+        updated: now.clone(),
+    };
+
+    index.tasks.push(task);
+    write_kanban_index(&kanban_path, &index)?;
+
+    // Write description file if provided
+    let task_description = description.unwrap_or_default();
+    if !task_description.is_empty() {
+        let task_path = get_task_file_path(&kanban_path, &task_id);
+        fs::write(&task_path, &task_description)?;
+    }
+
+    Ok(KanbanTaskWithContent {
+        id: task_id,
+        title,
+        status: task_status,
+        priority,
+        due,
+        created: now.clone(),
+        updated: now,
+        description: task_description,
+    })
+}
+
+/// Update a task's metadata (title, status, priority, due)
+#[tauri::command]
+pub async fn update_kanban_task(
+    kanban_path: PathBuf,
+    task_id: String,
+    updates: TaskUpdates,
+) -> Result<KanbanTaskWithContent, FsError> {
+    let mut index = read_kanban_index(&kanban_path)?;
+
+    let task = index
+        .tasks
+        .iter_mut()
+        .find(|t| t.id == task_id)
+        .ok_or_else(|| FsError::NotFound(format!("Task not found: {}", task_id)))?;
+
+    // Apply updates
+    if let Some(title) = updates.title {
+        task.title = title;
+    }
+    if let Some(status) = updates.status {
+        task.status = status;
+    }
+    if let Some(priority) = updates.priority {
+        task.priority = Some(priority);
+    }
+    if let Some(due) = updates.due {
+        task.due = Some(due);
+    }
+
+    // Update timestamp
+    task.updated = chrono::Utc::now().to_rfc3339();
+
+    // Clone values before write to avoid borrow issues
+    let result_task = KanbanTaskWithContent {
+        id: task.id.clone(),
+        title: task.title.clone(),
+        status: task.status.clone(),
+        priority: task.priority.clone(),
+        due: task.due.clone(),
+        created: task.created.clone(),
+        updated: task.updated.clone(),
+        description: String::new(), // Will be populated below
+    };
+
+    write_kanban_index(&kanban_path, &index)?;
+
+    // Handle description update if provided
+    let description = if let Some(desc) = updates.description {
+        let task_path = get_task_file_path(&kanban_path, &task_id);
+        fs::write(&task_path, &desc)?;
+        desc
+    } else {
+        // Read existing description
+        let task_path = get_task_file_path(&kanban_path, &task_id);
+        if task_path.exists() {
+            fs::read_to_string(&task_path)?
+        } else {
+            String::new()
+        }
+    };
+
+    Ok(KanbanTaskWithContent {
+        description,
+        ..result_task
+    })
+}
+
+/// Delete a task from a kanban board
+#[tauri::command]
+pub async fn delete_kanban_task(
+    kanban_path: PathBuf,
+    task_id: String,
+) -> Result<(), FsError> {
+    let mut index = read_kanban_index(&kanban_path)?;
+
+    let task_pos = index
+        .tasks
+        .iter()
+        .position(|t| t.id == task_id)
+        .ok_or_else(|| FsError::NotFound(format!("Task not found: {}", task_id)))?;
+
+    index.tasks.remove(task_pos);
+    write_kanban_index(&kanban_path, &index)?;
+
+    // Delete the description file if it exists
+    let task_path = get_task_file_path(&kanban_path, &task_id);
+    if task_path.exists() {
+        fs::remove_file(&task_path)?;
+    }
+
+    Ok(())
+}
+
+/// Update a task's description content
+#[tauri::command]
+pub async fn update_task_description(
+    kanban_path: PathBuf,
+    task_id: String,
+    description: String,
+) -> Result<(), FsError> {
+    let mut index = read_kanban_index(&kanban_path)?;
+
+    // Verify task exists and update timestamp
+    let task = index
+        .tasks
+        .iter_mut()
+        .find(|t| t.id == task_id)
+        .ok_or_else(|| FsError::NotFound(format!("Task not found: {}", task_id)))?;
+
+    task.updated = chrono::Utc::now().to_rfc3339();
+    write_kanban_index(&kanban_path, &index)?;
+
+    // Write description to file
+    let task_path = get_task_file_path(&kanban_path, &task_id);
+    fs::write(&task_path, description)?;
+
+    Ok(())
+}
+
+/// Update kanban board settings
+#[tauri::command]
+pub async fn update_kanban_settings(
+    kanban_path: PathBuf,
+    settings: KanbanSettings,
+) -> Result<(), FsError> {
+    let mut index = read_kanban_index(&kanban_path)?;
+    index.settings = settings;
+    write_kanban_index(&kanban_path, &index)?;
+    Ok(())
 }
