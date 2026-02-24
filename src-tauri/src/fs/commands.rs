@@ -524,11 +524,18 @@ fn write_notebook_index(notebook_path: &Path, index: &NotebookIndex) -> Result<(
 /// Generate a unique block ID
 fn generate_block_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
+    let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis();
-    format!("{:x}", timestamp)
+    // Add random suffix using nanoseconds and process ID to prevent collisions
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos();
+    let pid = std::process::id();
+    let random_suffix = (nanos ^ pid) & 0xFFFF;
+    format!("{:x}{:04x}", now, random_suffix)
 }
 
 /// Get file extension for a language
@@ -1159,11 +1166,18 @@ fn write_kanban_index(kanban_path: &Path, index: &KanbanIndex) -> Result<(), FsE
 /// Generate a unique task ID
 fn generate_task_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
+    let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis();
-    format!("{:x}", timestamp)
+    // Add random suffix using nanoseconds and process ID to prevent collisions
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos();
+    let pid = std::process::id();
+    let random_suffix = (nanos ^ pid) & 0xFFFF;
+    format!("{:x}{:04x}", now, random_suffix)
 }
 
 /// Get the file path for a task's description
@@ -1258,6 +1272,11 @@ pub async fn add_kanban_task(
     due: Option<String>,
     description: Option<String>,
 ) -> Result<KanbanTaskWithContent, FsError> {
+    // Validate title is not empty
+    if title.trim().is_empty() {
+        return Err(FsError::InvalidPath("Task title cannot be empty".to_string()));
+    }
+
     let mut index = read_kanban_index(&kanban_path)?;
 
     let task_id = generate_task_id();
@@ -1332,7 +1351,18 @@ pub async fn update_kanban_task(
     // Update timestamp
     task.updated = chrono::Utc::now().to_rfc3339();
 
-    // Clone values before write to avoid borrow issues
+    // Handle description: update if provided, otherwise read existing
+    let task_path = get_task_file_path(&kanban_path, &task_id);
+    let description = if let Some(desc) = updates.description {
+        fs::write(&task_path, &desc)?;
+        desc
+    } else if task_path.exists() {
+        fs::read_to_string(&task_path)?
+    } else {
+        String::new()
+    };
+
+    // Build result with all data ready
     let result_task = KanbanTaskWithContent {
         id: task.id.clone(),
         title: task.title.clone(),
@@ -1341,30 +1371,12 @@ pub async fn update_kanban_task(
         due: task.due.clone(),
         created: task.created.clone(),
         updated: task.updated.clone(),
-        description: String::new(), // Will be populated below
+        description,
     };
 
     write_kanban_index(&kanban_path, &index)?;
 
-    // Handle description update if provided
-    let description = if let Some(desc) = updates.description {
-        let task_path = get_task_file_path(&kanban_path, &task_id);
-        fs::write(&task_path, &desc)?;
-        desc
-    } else {
-        // Read existing description
-        let task_path = get_task_file_path(&kanban_path, &task_id);
-        if task_path.exists() {
-            fs::read_to_string(&task_path)?
-        } else {
-            String::new()
-        }
-    };
-
-    Ok(KanbanTaskWithContent {
-        description,
-        ..result_task
-    })
+    Ok(result_task)
 }
 
 /// Delete a task from a kanban board
