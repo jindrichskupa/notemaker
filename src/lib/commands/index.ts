@@ -26,6 +26,7 @@ let openTemplateDialog: (() => void) | null = null;
 let openSaveAsTemplateDialog: (() => void) | null = null;
 let openSettingsPanel: (() => void) | null = null;
 let openVaultSettingsDialog: (() => void) | null = null;
+let openNewKanbanDialog: (() => void) | null = null;
 
 export function setUICallbacks(callbacks: {
   openCommandPalette?: () => void;
@@ -43,6 +44,7 @@ export function setUICallbacks(callbacks: {
   openSaveAsTemplateDialog?: () => void;
   openSettingsPanel?: () => void;
   openVaultSettingsDialog?: () => void;
+  openNewKanbanDialog?: () => void;
 }) {
   openCommandPalette = callbacks.openCommandPalette || null;
   openQuickOpen = callbacks.openQuickOpen || null;
@@ -59,6 +61,7 @@ export function setUICallbacks(callbacks: {
   openSaveAsTemplateDialog = callbacks.openSaveAsTemplateDialog || null;
   openSettingsPanel = callbacks.openSettingsPanel || null;
   openVaultSettingsDialog = callbacks.openVaultSettingsDialog || null;
+  openNewKanbanDialog = callbacks.openNewKanbanDialog || null;
 }
 
 // Refresh recent vault commands (call when vaults list changes)
@@ -125,6 +128,14 @@ export function registerCommands() {
     category: "File",
     shortcut: "Cmd+Shift+N",
     action: () => openNewNotebookDialog?.(),
+  });
+
+  commandRegistry.register({
+    id: "kanban.new",
+    label: "New Kanban Board",
+    category: "File",
+    shortcut: "Cmd+Shift+K",
+    action: () => openNewKanbanDialog?.(),
   });
 
   commandRegistry.register({
