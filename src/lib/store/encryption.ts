@@ -14,6 +14,7 @@ import {
   addRecipientIdentity,
   getRecipientPublicKeys,
   clearRecipients,
+  getPublicKeyFromIdentityFile,
   type EncryptionMethod,
   type Recipient,
 } from "../fs";
@@ -28,6 +29,8 @@ function createEncryptionStore() {
   const [recipients, setRecipients] = createSignal<Recipient[]>([]);
   const [showPasswordDialog, setShowPasswordDialog] = createSignal(false);
   const [pendingUnlockCallback, setPendingUnlockCallback] = createSignal<(() => void) | null>(null);
+  const [ownIdentityPath, setOwnIdentityPath] = createSignal<string | null>(null);
+  const [ownPublicKey, setOwnPublicKey] = createSignal<string | null>(null);
 
   // Check initial state and try to auto-unlock from keychain
   async function initialize() {
@@ -299,6 +302,25 @@ function createEncryptionStore() {
     }
   }
 
+  // Set own identity (for displaying public key)
+  async function setOwnIdentity(identityPath: string): Promise<{ success: boolean; publicKey?: string; error?: string }> {
+    try {
+      const publicKey = await getPublicKeyFromIdentityFile(identityPath);
+      setOwnIdentityPath(identityPath);
+      setOwnPublicKey(publicKey);
+      return { success: true, publicKey };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { success: false, error: msg };
+    }
+  }
+
+  // Clear own identity
+  function clearOwnIdentity(): void {
+    setOwnIdentityPath(null);
+    setOwnPublicKey(null);
+  }
+
   // Request password from user (opens dialog)
   function requestPassword(callback?: () => void): void {
     setPendingUnlockCallback(() => callback || null);
@@ -334,6 +356,8 @@ function createEncryptionStore() {
     error,
     recipients,
     showPasswordDialog,
+    ownIdentityPath,
+    ownPublicKey,
 
     // Actions
     initialize,
@@ -345,6 +369,8 @@ function createEncryptionStore() {
     addRecipient,
     getCurrentPublicKeys,
     clearAllRecipients,
+    setOwnIdentity,
+    clearOwnIdentity,
     lock,
     forgetCredentials,
     encrypt,

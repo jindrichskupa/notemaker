@@ -64,6 +64,7 @@ export interface EncryptionSettings {
   method: EncryptionMethod;
   identity_file?: string;
   recipients?: Recipient[];
+  own_identity?: string;
 }
 
 export interface InterpreterSettings {
