@@ -334,24 +334,34 @@ impl Default for VaultConfig {
     }
 }
 
-// Kanban types
+/// A task in a kanban board
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KanbanTask {
+    /// Unique identifier for this task
     pub id: String,
+    /// Task title
     pub title: String,
+    /// Current status/column (e.g., "todo", "in_progress", "done")
     pub status: String,
+    /// Optional priority level
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
+    /// Optional due date in ISO 8601 format
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
+    /// When this task was created (ISO 8601)
     pub created: String,
+    /// When this task was last updated (ISO 8601)
     pub updated: String,
 }
 
+/// Settings for kanban board display
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KanbanSettings {
+    /// Card density: "compact", "standard", or "comfortable"
     #[serde(default = "default_card_density")]
     pub card_density: String,
+    /// Whether to show closed/done tasks
     #[serde(default)]
     pub show_closed: bool,
 }
@@ -360,54 +370,96 @@ fn default_card_density() -> String {
     "standard".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KanbanIndex {
-    pub version: u32,
-    pub columns: Vec<String>,
-    pub tasks: Vec<KanbanTask>,
-    #[serde(default)]
-    pub settings: KanbanSettings,
-}
-
 impl Default for KanbanSettings {
     fn default() -> Self {
         Self {
-            card_density: "standard".to_string(),
+            card_density: default_card_density(),
             show_closed: false,
         }
     }
 }
 
+/// Kanban board index file structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Kanban {
-    pub path: String,
-    pub name: String,
-    pub tasks: Vec<KanbanTaskWithContent>,
+pub struct KanbanIndex {
+    /// Schema version
+    pub version: u32,
+    /// Column names/statuses in display order
+    pub columns: Vec<String>,
+    /// All tasks in this kanban board
+    pub tasks: Vec<KanbanTask>,
+    /// Display settings
+    #[serde(default)]
     pub settings: KanbanSettings,
 }
 
+impl Default for KanbanIndex {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            columns: vec![
+                "todo".to_string(),
+                "in_progress".to_string(),
+                "done".to_string(),
+            ],
+            tasks: vec![],
+            settings: KanbanSettings::default(),
+        }
+    }
+}
+
+/// Full kanban board with task content loaded
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Kanban {
+    /// Path to the kanban board directory
+    pub path: PathBuf,
+    /// Display name of the kanban board
+    pub name: String,
+    /// All tasks with their descriptions loaded
+    pub tasks: Vec<KanbanTaskWithContent>,
+    /// Display settings
+    pub settings: KanbanSettings,
+}
+
+/// A kanban task with its description content loaded
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KanbanTaskWithContent {
+    /// Unique identifier for this task
     pub id: String,
+    /// Task title
     pub title: String,
+    /// Current status/column
     pub status: String,
+    /// Optional priority level
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
+    /// Optional due date in ISO 8601 format
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
+    /// When this task was created (ISO 8601)
     pub created: String,
+    /// When this task was last updated (ISO 8601)
     pub updated: String,
+    /// Task description/body content (markdown)
     pub description: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Partial updates for a task (all fields optional)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TaskUpdates {
+    /// New title
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// New status/column
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+    /// New priority
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
+    /// New due date
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
+    /// New description/body content
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
