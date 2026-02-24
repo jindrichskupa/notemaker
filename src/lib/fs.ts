@@ -49,6 +49,43 @@ export interface Notebook {
   blocks: NotebookBlock[];
 }
 
+// Kanban types
+
+export type TaskStatus = 'backlog' | 'ready' | 'working' | 'done' | 'closed';
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type CardDensity = 'compact' | 'standard' | 'detailed';
+
+export interface KanbanTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority?: TaskPriority;
+  due?: string;
+  created: string;
+  updated: string;
+  description: string;
+}
+
+export interface KanbanSettings {
+  cardDensity: CardDensity;
+  showClosed: boolean;
+}
+
+export interface Kanban {
+  path: string;
+  name: string;
+  tasks: KanbanTask[];
+  settings: KanbanSettings;
+}
+
+export interface TaskUpdates {
+  title?: string;
+  status?: string;
+  priority?: string;
+  due?: string;
+  description?: string;
+}
+
 export type EncryptionMethod = "password" | "identityfile" | "recipients";
 
 export interface Recipient {
@@ -249,6 +286,61 @@ export async function changeBlockType(
 export function isNotebook(path: string): boolean {
   // A notebook is a directory ending with .md
   return path.endsWith(".md");
+}
+
+// Kanban operations
+
+export async function createKanban(
+  path: string,
+  title?: string
+): Promise<Kanban> {
+  return invoke<Kanban>("create_kanban", { path, title });
+}
+
+export async function readKanban(path: string): Promise<Kanban> {
+  return invoke<Kanban>("read_kanban", { path });
+}
+
+export async function addKanbanTask(
+  kanbanPath: string,
+  title: string,
+  status: TaskStatus
+): Promise<KanbanTask> {
+  return invoke<KanbanTask>("add_kanban_task", { kanbanPath, title, status });
+}
+
+export async function updateKanbanTask(
+  kanbanPath: string,
+  taskId: string,
+  updates: TaskUpdates
+): Promise<KanbanTask> {
+  return invoke<KanbanTask>("update_kanban_task", { kanbanPath, taskId, updates });
+}
+
+export async function deleteKanbanTask(
+  kanbanPath: string,
+  taskId: string
+): Promise<void> {
+  return invoke("delete_kanban_task", { kanbanPath, taskId });
+}
+
+export async function updateTaskDescription(
+  kanbanPath: string,
+  taskId: string,
+  content: string
+): Promise<void> {
+  return invoke("update_task_description", { kanbanPath, taskId, description: content });
+}
+
+export async function updateKanbanSettings(
+  kanbanPath: string,
+  settings: KanbanSettings
+): Promise<void> {
+  return invoke("update_kanban_settings", { kanbanPath, settings });
+}
+
+export function isKanban(path: string): boolean {
+  return path.endsWith('.kanban') || path.includes('.kanban/');
 }
 
 // Note conversion
