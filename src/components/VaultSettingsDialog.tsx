@@ -340,6 +340,19 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
     }
   });
 
+  // Auto-migrate identity_file to own_identity when switching to recipients mode
+  createEffect(() => {
+    const method = props.config.encryption?.method;
+    const identityFile = props.config.encryption?.identity_file;
+    const ownIdentity = props.config.encryption?.own_identity;
+
+    // If switching to recipients mode and we have an identity file but no own_identity set
+    if (method === "recipients" && identityFile && !ownIdentity && !ownIdentityPath()) {
+      setOwnIdentityPath(identityFile);
+      props.onUpdate("encryption", "own_identity", identityFile);
+    }
+  });
+
   const handleBrowseIdentity = async () => {
     const file = await open({
       multiple: false,
@@ -442,7 +455,19 @@ function EncryptionSettings(props: { config: VaultConfig; onUpdate: UpdateFn }) 
           <SettingRow label="Method" description="How to authenticate for encryption">
             <select
               value={props.config.encryption?.method || "password"}
-              onChange={(e) => props.onUpdate("encryption", "method", e.currentTarget.value as EncryptionMethod)}
+              onChange={(e) => {
+                const newMethod = e.currentTarget.value as EncryptionMethod;
+                props.onUpdate("encryption", "method", newMethod);
+
+                // Auto-migrate identity_file to own_identity when switching to recipients
+                if (newMethod === "recipients") {
+                  const identityFile = props.config.encryption?.identity_file;
+                  if (identityFile && !props.config.encryption?.own_identity) {
+                    setOwnIdentityPath(identityFile);
+                    props.onUpdate("encryption", "own_identity", identityFile);
+                  }
+                }
+              }}
               class="bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
               style={{ padding: "4px 8px" }}
             >
