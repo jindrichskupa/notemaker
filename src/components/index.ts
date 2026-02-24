@@ -76,4 +76,6 @@ export type { VaultSwitcherProps } from "./VaultSwitcher";
 export { PasswordDialog } from "./PasswordDialog";
 export type { PasswordDialogProps } from "./PasswordDialog";
 
+export { KanbanEditor } from "./KanbanEditor";
+
 export * from "./Icons";

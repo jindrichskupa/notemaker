@@ -259,3 +259,17 @@ export function SettingsIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function KanbanIcon(props: IconProps) {
+  return (
+    <svg
+      class={props.class}
+      width={props.size || 16}
+      height={props.size || 16}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
+      <path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25ZM6.5 6.5v8h3v-8Zm4.5 8h3.25a.25.25 0 0 0 .25-.25v-8.5h-3.5Zm0-10v-3h-9v3Zm-4.5-3v3h3v-3Zm-4.5 3h3v-3H1.75a.25.25 0 0 0-.25.25Zm0 1v8.5c0 .138.112.25.25.25H5v-8.75Z" />
+    </svg>
+  );
+}

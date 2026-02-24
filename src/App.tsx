@@ -1,12 +1,14 @@
 import { createSignal, Show, onMount, onCleanup, createEffect } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
-import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel, SaveAsTemplateDialog, PasswordDialog } from "./components";
+import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel, SaveAsTemplateDialog, PasswordDialog, KanbanEditor } from "./components";
 import { VaultSettingsDialog } from "./components/VaultSettingsDialog";
 import { encryptionStore } from "./lib/store/encryption";
 import { createFromTemplate, isNotebookTemplate, processNotebookTemplate, type NoteTemplate } from "./lib/templates";
 import { parseNote } from "./lib/frontmatter/parser";
 import { vaultStore } from "./lib/store/vault";
 import { notebookStore } from "./lib/store/notebook";
+import { kanbanStore } from "./lib/store/kanban";
+import { isKanban } from "./lib/fs";
 import "./lib/store/theme"; // Initialize theme on load
 import { initializeSettings } from "./lib/settings";
 import { registerCommands, setUICallbacks } from "./lib/commands";
@@ -127,16 +129,26 @@ function App() {
   const [showSidebar, setShowSidebar] = createSignal(true);
   const [demoContent, setDemoContent] = createSignal(DEMO_CONTENT);
   const [viewingNotebook, setViewingNotebook] = createSignal(false);
+  const [viewingKanban, setViewingKanban] = createSignal(false);
 
-  // Watch for notebook selection
+  // Watch for notebook and kanban selection
   createEffect(() => {
     const selectedPath = vaultStore.selectedPath();
     if (selectedPath && isNotebook(selectedPath)) {
       setViewingNotebook(true);
+      setViewingKanban(false);
       notebookStore.open(selectedPath);
+      kanbanStore.close();
+    } else if (selectedPath && isKanban(selectedPath)) {
+      setViewingKanban(true);
+      setViewingNotebook(false);
+      kanbanStore.open(selectedPath);
+      notebookStore.close();
     } else {
       setViewingNotebook(false);
+      setViewingKanban(false);
       notebookStore.close();
+      kanbanStore.close();
     }
   });
 
@@ -398,7 +410,7 @@ function App() {
         {/* Editor area */}
         <div class="flex-1 flex flex-col overflow-hidden">
           <Show
-            when={vaultStore.currentNote() || viewingNotebook() || !vaultStore.vault()}
+            when={vaultStore.currentNote() || viewingNotebook() || viewingKanban() || !vaultStore.vault()}
             fallback={
               <div class="flex-1 flex items-center justify-center text-gray-500">
                 <div class="text-center space-y-4">
@@ -415,24 +427,31 @@ function App() {
             }
           >
             <Show
-              when={viewingNotebook()}
+              when={viewingKanban()}
               fallback={
-                <EditorWithPreview
-                  content={currentContent()}
-                  onChange={handleChange}
-                  onSave={handleSave}
-                  filePath={currentFilePath()}
-                  initialMode="split"
-                  config={{
-                    vimMode: false,
-                    theme: "dark",
-                    lineNumbers: true,
-                    wordWrap: true,
-                  }}
-                />
+                <Show
+                  when={viewingNotebook()}
+                  fallback={
+                    <EditorWithPreview
+                      content={currentContent()}
+                      onChange={handleChange}
+                      onSave={handleSave}
+                      filePath={currentFilePath()}
+                      initialMode="split"
+                      config={{
+                        vimMode: false,
+                        theme: "dark",
+                        lineNumbers: true,
+                        wordWrap: true,
+                      }}
+                    />
+                  }
+                >
+                  <NotebookEditor />
+                </Show>
               }
             >
-              <NotebookEditor />
+              <KanbanEditor />
             </Show>
           </Show>
         </div>

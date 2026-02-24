@@ -7,7 +7,7 @@ import { vaultStore, TreeNode } from "../lib/store/vault";
 import { TreeView, FileStatusInfo } from "./TreeView";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 import { TagsPanel } from "./TagsPanel";
-import { FolderIcon, FolderPlusIcon, FilePlusIcon, NotebookIcon, ChevronDownIcon, ChevronRightIcon } from "./Icons";
+import { FolderIcon, FolderPlusIcon, FilePlusIcon, NotebookIcon, KanbanIcon, ChevronDownIcon, ChevronRightIcon } from "./Icons";
 import { VaultSwitcher } from "./VaultSwitcher";
 import { tagsStore } from "../lib/tags";
 import { gitChangedFiles } from "../lib/git/api";
@@ -26,6 +26,7 @@ export function Sidebar(props: SidebarProps) {
   const [isCreatingNote, setIsCreatingNote] = createSignal(false);
   const [isCreatingFolder, setIsCreatingFolder] = createSignal(false);
   const [isCreatingNotebook, setIsCreatingNotebook] = createSignal(false);
+  const [isCreatingKanban, setIsCreatingKanban] = createSignal(false);
   const [isRenaming, setIsRenaming] = createSignal(false);
   const [renamingNode, setRenamingNode] = createSignal<TreeNode | null>(null);
   const [newItemName, setNewItemName] = createSignal("");
@@ -124,6 +125,7 @@ export function Sidebar(props: SidebarProps) {
         { id: "new-note", label: "New Note", shortcut: "⌘N" },
         { id: "new-folder", label: "New Folder" },
         { id: "new-notebook", label: "New Notebook", shortcut: "⌘⇧N" },
+        { id: "new-kanban", label: "New Kanban Board" },
         { id: "separator-1", label: "", separator: true }
       );
     }
@@ -162,6 +164,13 @@ export function Sidebar(props: SidebarProps) {
         setNewItemParent(notebookParent);
         setNewItemName("");
         setIsCreatingNotebook(true);
+        break;
+
+      case "new-kanban":
+        const kanbanParent = node.type === "folder" ? node.path : vaultStore.vault()?.path || "";
+        setNewItemParent(kanbanParent);
+        setNewItemName("");
+        setIsCreatingKanban(true);
         break;
 
       case "rename":
@@ -237,6 +246,15 @@ export function Sidebar(props: SidebarProps) {
     setIsCreatingNotebook(true);
   };
 
+  // New kanban in vault root
+  const handleNewKanban = () => {
+    const vault = vaultStore.vault();
+    if (!vault) return;
+    setNewItemParent(vault.path);
+    setNewItemName("");
+    setIsCreatingKanban(true);
+  };
+
   // Create new notebook
   const handleCreateNotebook = async () => {
     const name = newItemName().trim();
@@ -257,6 +275,29 @@ export function Sidebar(props: SidebarProps) {
       await vaultStore.selectNote(path);
     } catch (err) {
       console.error("Failed to create notebook:", err);
+    }
+  };
+
+  // Create new kanban board
+  const handleCreateKanban = async () => {
+    const name = newItemName().trim();
+    if (!name) return;
+
+    try {
+      // Ensure name ends with .kanban
+      const kanbanName = name.endsWith(".kanban") ? name : `${name}.kanban`;
+      const path = `${newItemParent()}/${kanbanName}`;
+
+      // Import and use kanbanStore
+      const { kanbanStore } = await import("../lib/store/kanban");
+      await kanbanStore.create(path, name.replace(/\.kanban$/, ""));
+
+      setIsCreatingKanban(false);
+      setNewItemName("");
+      await vaultStore.refreshTree();
+      await vaultStore.selectNote(path);
+    } catch (err) {
+      console.error("Failed to create kanban:", err);
     }
   };
 
@@ -326,6 +367,14 @@ export function Sidebar(props: SidebarProps) {
             title="New Notebook (⌘⇧N)"
           >
             <NotebookIcon size={14} />
+          </button>
+          <button
+            onClick={handleNewKanban}
+            disabled={!vaultStore.vault()}
+            class="p-2 text-purple-500 hover:text-purple-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="New Kanban"
+          >
+            <KanbanIcon size={14} />
           </button>
         </div>
       </div>
@@ -510,6 +559,49 @@ export function Sidebar(props: SidebarProps) {
               <button
                 onClick={handleCreateNotebook}
                 class="text-sm font-medium bg-green-600 hover:bg-green-500 rounded-lg transition-colors"
+                style={{ padding: "12px 24px" }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Create kanban dialog */}
+      <Show when={isCreatingKanban()}>
+        <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div class="bg-gray-800 rounded-2xl w-[420px] border border-gray-700 shadow-xl flex flex-col" style={{ padding: "28px 32px", gap: "16px" }}>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-100" style={{ "margin-bottom": "8px" }}>New Kanban Board</h3>
+              <p class="text-sm text-gray-400">
+                A kanban board for organizing tasks in columns.
+              </p>
+            </div>
+            <input
+              ref={(el) => setTimeout(() => el?.focus(), 10)}
+              type="text"
+              placeholder="Kanban board name..."
+              value={newItemName()}
+              onInput={(e) => setNewItemName(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateKanban();
+                if (e.key === "Escape") setIsCreatingKanban(false);
+              }}
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-100 placeholder-gray-500 outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              style={{ padding: "14px 16px" }}
+            />
+            <div class="flex justify-end" style={{ gap: "16px" }}>
+              <button
+                onClick={() => setIsCreatingKanban(false)}
+                class="text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
+                style={{ padding: "12px 24px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateKanban}
+                class="text-sm font-medium bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
                 style={{ padding: "12px 24px" }}
               >
                 Create

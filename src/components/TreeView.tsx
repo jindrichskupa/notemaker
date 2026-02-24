@@ -77,10 +77,12 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
   const isFolder = () => props.node.type === "folder";
   // Notebooks are folders that end with .md
   const isNotebook = () => isFolder() && props.node.name.endsWith(".md");
+  // Kanbans are folders that end with .kanban
+  const isKanban = () => isFolder() && props.node.name.endsWith(".kanban");
 
   const handleClick = () => {
-    if (isNotebook()) {
-      // Notebooks should be opened, not just expanded
+    if (isNotebook() || isKanban()) {
+      // Notebooks and Kanbans should be opened, not just expanded
       props.onSelect(props.node.path);
     } else if (isFolder()) {
       props.onToggle(props.node.path);
@@ -102,7 +104,7 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
 
   const handleDragOver = (e: DragEvent) => {
     e.preventDefault();
-    if (isFolder() && !isNotebook()) {
+    if (isFolder() && !isNotebook() && !isKanban()) {
       e.dataTransfer!.dropEffect = "move";
       setIsDragOver(true);
     } else {
@@ -112,7 +114,7 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
 
   const handleDragEnter = (e: DragEvent) => {
     e.preventDefault();
-    if (isFolder() && !isNotebook()) {
+    if (isFolder() && !isNotebook() && !isKanban()) {
       setIsDragOver(true);
     }
   };
@@ -126,7 +128,7 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    if (!isFolder() || isNotebook()) return;
+    if (!isFolder() || isNotebook() || isKanban()) return;
     const sourcePath = e.dataTransfer!.getData("text/plain");
     if (sourcePath && sourcePath !== props.node.path) {
       if (props.node.path.startsWith(sourcePath + "/")) {
@@ -192,9 +194,9 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Expand/collapse chevron for folders (not for notebooks) */}
+        {/* Expand/collapse chevron for folders (not for notebooks or kanbans) */}
         <Show
-          when={isFolder() && !isNotebook()}
+          when={isFolder() && !isNotebook() && !isKanban()}
           fallback={<span class="w-4" />}
         >
           <span class="w-4 h-4 flex items-center justify-center text-gray-500">
@@ -209,23 +211,33 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
         {/* Icon */}
         <span class="w-4 h-4 flex items-center justify-center text-gray-400">
           <Show
-            when={isNotebook()}
+            when={isKanban()}
             fallback={
               <Show
-                when={isFolder()}
-                fallback={<MarkdownIcon size={14} />}
+                when={isNotebook()}
+                fallback={
+                  <Show
+                    when={isFolder()}
+                    fallback={<MarkdownIcon size={14} />}
+                  >
+                    {isExpanded() ? (
+                      <FolderOpenIcon size={14} />
+                    ) : (
+                      <FolderIcon size={14} />
+                    )}
+                  </Show>
+                }
               >
-                {isExpanded() ? (
-                  <FolderOpenIcon size={14} />
-                ) : (
-                  <FolderIcon size={14} />
-                )}
+                {/* Notebook icon - code/document hybrid */}
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" class="text-green-400">
+                  <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
+                </svg>
               </Show>
             }
           >
-            {/* Notebook icon - code/document hybrid */}
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" class="text-green-400">
-              <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
+            {/* Kanban icon - columns/board */}
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" class="text-purple-400">
+              <path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25ZM6.5 6.5v8h3v-8Zm4.5 8h3.25a.25.25 0 0 0 .25-.25v-8.5h-3.5Zm0-10v-3h-9v3Zm-4.5-3v3h3v-3Zm-4.5 3h3v-3H1.75a.25.25 0 0 0-.25.25Zm0 1v8.5c0 .138.112.25.25.25H5v-8.75Z" />
             </svg>
           </Show>
         </span>
@@ -244,8 +256,8 @@ function TreeNodeComponent(props: TreeNodeComponentProps) {
         </Show>
       </div>
 
-      {/* Children - only for regular folders, not notebooks */}
-      <Show when={isFolder() && !isNotebook() && isExpanded() && props.node.children}>
+      {/* Children - only for regular folders, not notebooks or kanbans */}
+      <Show when={isFolder() && !isNotebook() && !isKanban() && isExpanded() && props.node.children}>
         <div class="tree-node-children">
           <For each={props.node.children}>
             {(child) => (
