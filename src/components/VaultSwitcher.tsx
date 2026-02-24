@@ -52,7 +52,7 @@ export function VaultSwitcher(props: VaultSwitcherProps) {
         style={{ gap: "6px", padding: "4px 8px", "margin-left": "-8px" }}
       >
         <FolderIcon size={14} class="text-blue-400 flex-shrink-0" />
-        <span class="text-sm font-medium text-gray-200 truncate max-w-[140px]">
+        <span class="text-sm font-medium text-gray-200 truncate max-w-[100px]">
           {currentVault()?.name || "No vault"}
         </span>
         <ChevronDownIcon

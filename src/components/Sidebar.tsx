@@ -326,55 +326,55 @@ export function Sidebar(props: SidebarProps) {
           onOpenVaultSettings={props.onOpenVaultSettings}
         />
 
-        <div class="flex items-center gap-1">
+        <div class="flex items-center flex-shrink-0" style={{ gap: "2px" }}>
           <button
             onClick={() => vaultStore.expandAll()}
             disabled={!vaultStore.vault()}
-            class="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Expand All"
           >
-            <ChevronDownIcon size={14} />
+            <ChevronDownIcon size={12} />
           </button>
           <button
             onClick={() => vaultStore.collapseAll()}
             disabled={!vaultStore.vault()}
-            class="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Collapse All"
           >
-            <ChevronRightIcon size={14} />
+            <ChevronRightIcon size={12} />
           </button>
-          <div class="w-px h-4 bg-gray-700" />
+          <div class="w-px h-3 bg-gray-700" style={{ margin: "0 2px" }} />
           <button
             onClick={handleNewFolder}
             disabled={!vaultStore.vault()}
-            class="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="New Folder"
           >
-            <FolderPlusIcon size={14} />
+            <FolderPlusIcon size={12} />
           </button>
           <button
             onClick={handleNewNote}
             disabled={!vaultStore.vault()}
-            class="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="New Note (⌘N)"
           >
-            <FilePlusIcon size={14} />
+            <FilePlusIcon size={12} />
           </button>
           <button
             onClick={handleNewNotebook}
             disabled={!vaultStore.vault()}
-            class="p-2 text-green-500 hover:text-green-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-green-500 hover:text-green-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="New Notebook (⌘⇧N)"
           >
-            <NotebookIcon size={14} />
+            <NotebookIcon size={12} />
           </button>
           <button
             onClick={handleNewKanban}
             disabled={!vaultStore.vault()}
-            class="p-2 text-purple-500 hover:text-purple-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 text-purple-500 hover:text-purple-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="New Kanban"
           >
-            <KanbanIcon size={14} />
+            <KanbanIcon size={12} />
           </button>
         </div>
       </div>
