@@ -913,3 +913,65 @@ kbd {
 [data-theme="light"] .cm-activeLine .cm-hidden-syntax {
   opacity: 0.5 !important;
 }
+
+/* ==========================================================================
+   Kanban Card Preview - Compact markdown rendering
+   ========================================================================== */
+
+.kanban-card-preview {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.kanban-card-preview p {
+  margin: 0 0 4px 0;
+}
+
+.kanban-card-preview ul,
+.kanban-card-preview ol {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.kanban-card-preview li {
+  margin: 2px 0;
+}
+
+.kanban-card-preview input[type="checkbox"] {
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.kanban-card-preview code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.kanban-card-preview pre {
+  display: none; /* Hide code blocks in card preview */
+}
+
+.kanban-card-preview h1,
+.kanban-card-preview h2,
+.kanban-card-preview h3,
+.kanban-card-preview h4,
+.kanban-card-preview h5,
+.kanban-card-preview h6 {
+  font-size: 11px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.kanban-card-preview a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.kanban-card-preview blockquote {
+  border-left: 2px solid #4b5563;
+  padding-left: 8px;
+  margin: 4px 0;
+  opacity: 0.8;
+}

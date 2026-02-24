@@ -102,6 +102,7 @@ export function KanbanEditor() {
                     onTaskClick={(id) => store.setSelectedTaskId(id)}
                     onTaskDoubleClick={(id) => store.setSelectedTaskId(id)}
                     onAddTask={(title) => handleAddTask(status, title)}
+                    onDescriptionChange={(taskId, content) => store.setTaskDescription(taskId, content)}
                   />
                 )}
               </For>

@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { createDraggable } from "@thisbeyond/solid-dnd";
 import type { KanbanTask, CardDensity } from "../lib/fs";
+import { KanbanCardPreview } from "./KanbanCardPreview";
 
 interface KanbanCardProps {
   task: KanbanTask;
@@ -8,6 +9,7 @@ interface KanbanCardProps {
   isSelected: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
+  onDescriptionChange?: (content: string) => void;
 }
 
 export function KanbanCard(props: KanbanCardProps) {
@@ -53,7 +55,7 @@ export function KanbanCard(props: KanbanCardProps) {
       </div>
 
       {/* Standard & Detailed: show metadata row */}
-      <Show when={props.density !== "compact"}>
+      <Show when={props.density !== "compact" && (props.task.priority || props.task.due)}>
         <div class="flex items-center flex-wrap" style={{ gap: "6px", "margin-top": "6px" }}>
           {/* Priority badge */}
           <Show when={props.task.priority}>
@@ -78,29 +80,18 @@ export function KanbanCard(props: KanbanCardProps) {
               {formatDate(props.task.due!)}
             </span>
           </Show>
-
-          {/* No metadata indicator */}
-          <Show when={!props.task.priority && !props.task.due && !props.task.description}>
-            <span class="text-xs text-gray-500 italic">Click to edit</span>
-          </Show>
         </div>
       </Show>
 
-      {/* Detailed density: show description preview */}
-      <Show when={props.density === "detailed"}>
-        <Show
-          when={props.task.description}
-          fallback={
-            <p class="text-xs text-gray-500 italic" style={{ "margin-top": "8px" }}>
-              No description
-            </p>
-          }
-        >
-          <p class="text-xs text-gray-400 line-clamp-2" style={{ "margin-top": "8px" }}>
-            {props.task.description.slice(0, 100)}
-            {props.task.description.length > 100 ? "..." : ""}
-          </p>
-        </Show>
+      {/* Detailed density: show markdown description preview */}
+      <Show when={props.density === "detailed" && props.task.description}>
+        <div style={{ "margin-top": "8px" }}>
+          <KanbanCardPreview
+            content={props.task.description}
+            maxLength={150}
+            onCheckboxToggle={props.onDescriptionChange}
+          />
+        </div>
       </Show>
     </div>
   );

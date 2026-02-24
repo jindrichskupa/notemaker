@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   onTaskClick: (taskId: string) => void;
   onTaskDoubleClick: (taskId: string) => void;
   onAddTask: (title: string) => void;
+  onDescriptionChange?: (taskId: string, content: string) => void;
 }
 
 export function KanbanColumn(props: KanbanColumnProps) {
@@ -105,6 +106,7 @@ export function KanbanColumn(props: KanbanColumnProps) {
               isSelected={props.selectedTaskId === task.id}
               onClick={() => props.onTaskClick(task.id)}
               onDoubleClick={() => props.onTaskDoubleClick(task.id)}
+              onDescriptionChange={(content) => props.onDescriptionChange?.(task.id, content)}
             />
           )}
         </For>
