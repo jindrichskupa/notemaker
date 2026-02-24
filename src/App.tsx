@@ -120,6 +120,8 @@ function App() {
   const [newNoteName, setNewNoteName] = createSignal("");
   const [showNewNotebookDialog, setShowNewNotebookDialog] = createSignal(false);
   const [newNotebookName, setNewNotebookName] = createSignal("");
+  const [showNewKanbanDialog, setShowNewKanbanDialog] = createSignal(false);
+  const [newKanbanName, setNewKanbanName] = createSignal("");
   const [showShortcutsHelp, setShowShortcutsHelp] = createSignal(false);
   const [showGitPanel, setShowGitPanel] = createSignal(false);
   const [showTemplateDialog, setShowTemplateDialog] = createSignal(false);
@@ -231,6 +233,26 @@ function App() {
     }
   };
 
+  // Handle creating a new kanban board
+  const handleCreateKanban = async () => {
+    const name = newKanbanName().trim();
+    const vault = vaultStore.vault();
+    if (!name || !vault) return;
+
+    try {
+      // Kanban boards are stored as directories with .kanban extension
+      const kanbanName = name.endsWith(".kanban") ? name : `${name}.kanban`;
+      const path = `${vault.path}/${kanbanName}`;
+      await kanbanStore.create(path, name.replace(/\.kanban$/, ""));
+      setShowNewKanbanDialog(false);
+      setNewKanbanName("");
+      await vaultStore.refreshTree();
+      await vaultStore.selectNote(path);
+    } catch (err) {
+      console.error("Failed to create kanban:", err);
+    }
+  };
+
   // Handle creating note or notebook from template
   const handleCreateFromTemplate = async (template: NoteTemplate, name: string) => {
     const vault = vaultStore.vault();
@@ -294,6 +316,12 @@ function App() {
         if (vaultStore.vault()) {
           setNewNotebookName("");
           setShowNewNotebookDialog(true);
+        }
+      },
+      openNewKanbanDialog: () => {
+        if (vaultStore.vault()) {
+          setNewKanbanName("");
+          setShowNewKanbanDialog(true);
         }
       },
       toggleSidebar: () => setShowSidebar(!showSidebar()),
@@ -618,6 +646,52 @@ function App() {
               </button>
               <button
                 onClick={handleCreateNotebook}
+                class="text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+                style={{ padding: "12px 24px" }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* New Kanban Dialog */}
+      <Show when={showNewKanbanDialog()}>
+        <div
+          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={(e) => e.target === e.currentTarget && setShowNewKanbanDialog(false)}
+        >
+          <div class="bg-gray-800 rounded-2xl w-[420px] border border-gray-700 shadow-xl flex flex-col" style={{ padding: "28px 32px", gap: "16px" }}>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-100" style={{ "margin-bottom": "8px" }}>New Kanban Board</h3>
+              <p class="text-sm text-gray-400">
+                A kanban board for organizing tasks with drag-and-drop columns.
+              </p>
+            </div>
+            <input
+              ref={(el) => setTimeout(() => el?.focus(), 10)}
+              type="text"
+              placeholder="Board name..."
+              value={newKanbanName()}
+              onInput={(e) => setNewKanbanName(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateKanban();
+                if (e.key === "Escape") setShowNewKanbanDialog(false);
+              }}
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-100 placeholder-gray-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={{ padding: "14px 16px" }}
+            />
+            <div class="flex justify-end" style={{ gap: "16px" }}>
+              <button
+                onClick={() => setShowNewKanbanDialog(false)}
+                class="text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
+                style={{ padding: "12px 24px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateKanban}
                 class="text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
                 style={{ padding: "12px 24px" }}
               >

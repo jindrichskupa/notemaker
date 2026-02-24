@@ -34,8 +34,16 @@ export function KanbanEditor() {
       : COLUMNS.filter((c) => c !== "closed");
   };
 
+  // Helper to find task by ID for drag overlay
+  const getTaskTitle = (taskId: string): string => {
+    const k = store.kanban();
+    if (!k) return taskId;
+    const task = k.tasks.find(t => t.id === taskId);
+    return task?.title || taskId;
+  };
+
   return (
-    <div class="flex flex-col h-full bg-gray-900">
+    <div class="relative flex flex-col h-full bg-gray-900">
       {/* Header */}
       <div
         class="flex items-center justify-between border-b border-gray-700"
@@ -98,7 +106,7 @@ export function KanbanEditor() {
           <DragOverlay>
             {(draggable) => (
               <div class="bg-gray-700 rounded border border-gray-500 shadow-lg opacity-80" style={{ padding: "8px 12px" }}>
-                {draggable ? String(draggable.id) : null}
+                {draggable ? getTaskTitle(String(draggable.id)) : null}
               </div>
             )}
           </DragOverlay>
