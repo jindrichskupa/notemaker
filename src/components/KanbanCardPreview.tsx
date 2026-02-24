@@ -48,7 +48,7 @@ export function KanbanCardPreview(props: KanbanCardPreviewProps) {
 
   return (
     <div
-      class="kanban-card-preview text-xs text-gray-400"
+      class="kanban-card-preview text-sm text-gray-400"
       innerHTML={html()}
       onClick={handleClick}
     />

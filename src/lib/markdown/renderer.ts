@@ -9,6 +9,26 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import rehypeHighlight from "rehype-highlight";
+import { visit } from "unist-util-visit";
+import type { Root, Element } from "hast";
+
+/**
+ * Rehype plugin to enable checkboxes (remove disabled attribute)
+ * This allows checkboxes to be clicked and toggled via JavaScript
+ */
+function rehypeEnableCheckboxes() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element) => {
+      if (
+        node.tagName === "input" &&
+        node.properties?.type === "checkbox"
+      ) {
+        // Remove disabled attribute to make checkbox clickable
+        delete node.properties.disabled;
+      }
+    });
+  };
+}
 
 // Create the processor once for reuse
 const processor = unified()
@@ -16,6 +36,7 @@ const processor = unified()
   .use(remarkGfm)
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeEnableCheckboxes)
   .use(rehypeHighlight, { detect: true, ignoreMissing: true })
   .use(rehypeStringify, { allowDangerousHtml: true });
 

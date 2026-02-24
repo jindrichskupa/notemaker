@@ -142,16 +142,19 @@ function createKanbanStore() {
     const k = kanban();
     if (!k) return false;
 
+    // Update UI immediately (optimistic update)
+    setKanban({
+      ...k,
+      tasks: k.tasks.map(t =>
+        t.id === taskId
+          ? { ...t, description: content, updated: new Date().toISOString() }
+          : t
+      ),
+    });
+
+    // Then persist to disk
     try {
       await updateTaskDescription(k.path, taskId, content);
-      setKanban({
-        ...k,
-        tasks: k.tasks.map(t =>
-          t.id === taskId
-            ? { ...t, description: content, updated: new Date().toISOString() }
-            : t
-        ),
-      });
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -165,9 +168,13 @@ function createKanbanStore() {
     if (!k) return false;
 
     const newSettings = { ...k.settings, ...settings };
+
+    // Update UI immediately (optimistic update)
+    setKanban({ ...k, settings: newSettings });
+
+    // Then persist to disk
     try {
       await updateKanbanSettings(k.path, newSettings);
-      setKanban({ ...k, settings: newSettings });
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

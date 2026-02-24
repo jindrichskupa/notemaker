@@ -27,6 +27,9 @@ export function Editor(props: EditorProps) {
   let editorView: EditorView | undefined;
   let autoSaveController: AutoSaveController | undefined;
 
+  // Flag to skip content sync when change originated from editor
+  let skipNextContentSync = false;
+
   const [isDirty, setIsDirty] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
   const [lastSaved, setLastSaved] = createSignal<number | null>(null);
@@ -45,6 +48,8 @@ export function Editor(props: EditorProps) {
 
   // Handle content change
   const handleChange = (content: string) => {
+    // Mark that this change came from the editor, so we don't re-sync it back
+    skipNextContentSync = true;
     props.onChange?.(content);
     setIsDirty(true);
 
@@ -110,9 +115,16 @@ export function Editor(props: EditorProps) {
     editorView.focus();
   });
 
-  // Update content when props change
+  // Update content when props change (from external source)
   createEffect(() => {
     const newContent = props.content;
+
+    // Skip if this change originated from within the editor
+    if (skipNextContentSync) {
+      skipNextContentSync = false;
+      return;
+    }
+
     if (editorView && editorView.state.doc.toString() !== newContent) {
       editorView.dispatch({
         changes: {
