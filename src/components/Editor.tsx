@@ -101,6 +101,11 @@ export function Editor(props: EditorProps) {
       parent: containerRef,
     });
 
+    // Set initial base path for inline image resolution
+    if (props.absoluteFilePath) {
+      updateInlineMarkdownBasePath(editorView, props.absoluteFilePath);
+    }
+
     // Set up auto-save if onSave is provided
     if (props.onSave) {
       autoSaveController = createAutoSave(handleSave, 1000);

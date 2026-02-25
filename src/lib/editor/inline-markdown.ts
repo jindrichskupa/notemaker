@@ -288,7 +288,12 @@ const inlineMarkdownPlugin = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      // Check if basePath changed
+      const basePathChanged = update.transactions.some(tr =>
+        tr.effects.some(e => e.is(setBasePath))
+      );
+
+      if (update.docChanged || update.viewportChanged || update.selectionSet || basePathChanged) {
         this.decorations = buildDecorations(update.view);
       }
     }

@@ -13,7 +13,7 @@ import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { languages } from "../lib/editor/languages";
-import { inlineMarkdownExtension } from "../lib/editor/inline-markdown";
+import { inlineMarkdownExtension, updateInlineMarkdownBasePath } from "../lib/editor/inline-markdown";
 import { createImageDropExtension } from "../lib/editor/imageDropExtension";
 import { settingsStore } from "../lib/settings";
 
@@ -228,6 +228,11 @@ export function MarkdownBlockEditor(props: MarkdownBlockEditorProps) {
       parent: containerRef,
     });
 
+    // Set initial base path for inline image resolution
+    if (props.notebookPath) {
+      updateInlineMarkdownBasePath(editorView, props.notebookPath);
+    }
+
     // Listen to settings changes for inline markdown (same as main Editor)
     const unsubscribe = settingsStore.subscribe(() => {
       const newValue = settingsStore.get().editor.inlineMarkdown;
@@ -258,6 +263,14 @@ export function MarkdownBlockEditor(props: MarkdownBlockEditorProps) {
         },
       });
       isUpdatingFromProps = false;
+    }
+  });
+
+  // Update inline markdown base path for image resolution
+  createEffect(() => {
+    const path = props.notebookPath;
+    if (editorView) {
+      updateInlineMarkdownBasePath(editorView, path);
     }
   });
 
