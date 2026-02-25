@@ -246,6 +246,9 @@ notemaker/
 | I-015 | **Notebook templates** | ✅ Hotovo | 6 built-in notebook šablon (Python Tutorial, Shell Script, Data Analysis, SQL Queries, API Testing, Blank). Badge "Notebook" v TemplateDialog. `notebookStore.createFromTemplate()` pro vytvoření z šablony. |
 | I-016 | **Recipients encryption** | ✅ Hotovo | Multi-recipient age šifrování. UI pro generování identity, zobrazení/kopírování public key, přidávání recipients pomocí public key. Dokumentace v `docs/encryption.md`. |
 | I-017 | **Attachment support** | ✅ Hotovo | Paste (Cmd+V) a drag & drop obrázků do editoru. Ukládání do `.assets` složky. Podporované formáty: PNG, JPG, GIF, WebP, SVG (max 10MB). |
+| I-018 | **Inline image preview** | ✅ Hotovo | Zobrazení obrázků přímo v editoru místo markdown syntaxe. Max 400x300px. Na aktivním řádku se zobrazí syntax pro editaci. |
+| I-019 | **Orphan assets cleanup** | ⏳ Plánováno | Detekce a mazání obrázků v `.assets` složkách, které nejsou referencovány v žádné poznámce. Command Palette "Clean Orphan Assets". |
+| I-020 | **Shared assets folder** | ⏳ Plánováno | Volitelná sdílená složka pro assety na úrovni vaultu (`vault/.assets/`). Umožní snadné sdílení obrázků mezi poznámkami. |
 
 ## Multiplatformní podpora
 
