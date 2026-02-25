@@ -35,6 +35,7 @@ pub fn run() {
             fs::delete_note,
             fs::rename_note,
             fs::move_note,
+            fs::save_attachment,
             fs::create_directory,
             fs::delete_directory,
             fs::get_vault_config,

@@ -1443,3 +1443,67 @@ pub async fn update_kanban_settings(
     write_kanban_index(&kanban_path, &index)?;
     Ok(())
 }
+
+// =============================================================================
+// Attachment Operations
+// =============================================================================
+
+/// Save an attachment (image) to the .assets folder of a note
+#[tauri::command]
+pub async fn save_attachment(
+    note_path: String,
+    filename: String,
+    data: String,
+) -> Result<String, FsError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use base64::Engine;
+
+    let note_path = PathBuf::from(&note_path);
+
+    if !note_path.exists() {
+        return Err(FsError::NotFound(note_path.display().to_string()));
+    }
+
+    let assets_dir = if note_path.is_dir() {
+        let parent = note_path.parent().unwrap_or(&note_path);
+        let name = note_path.file_name().unwrap().to_string_lossy();
+        let name_without_ext = name.trim_end_matches(".md");
+        parent.join(format!("{}.assets", name_without_ext))
+    } else {
+        let name = note_path.file_stem().unwrap().to_string_lossy();
+        let parent = note_path.parent().unwrap();
+        parent.join(format!("{}.assets", name))
+    };
+
+    if !assets_dir.exists() {
+        fs::create_dir_all(&assets_dir)?;
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    let ext = PathBuf::from(&filename)
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_else(|| "png".to_string());
+
+    let hash: String = data.chars().filter(|c| c.is_alphanumeric()).take(4).collect();
+    let new_filename = format!("img-{}-{}.{}", timestamp, hash, ext);
+    let file_path = assets_dir.join(&new_filename);
+
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(&data)
+        .map_err(|e| FsError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid base64: {}", e)
+        )))?;
+
+    fs::write(&file_path, decoded)?;
+
+    let assets_folder_name = assets_dir.file_name().unwrap().to_string_lossy();
+    let relative_path = format!("./{}/{}", assets_folder_name, new_filename);
+
+    Ok(relative_path)
+}
