@@ -1,6 +1,6 @@
 {
   "name": "notemaker",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Developer notes application",
   "type": "module",
   "scripts": {

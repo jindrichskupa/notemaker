@@ -10,6 +10,8 @@ import { debounce } from "../lib/utils";
 export interface PreviewProps {
   content: string;
   class?: string;
+  /** Path to the current note file (for resolving relative image paths) */
+  basePath?: string;
 }
 
 export function Preview(props: PreviewProps) {
@@ -19,10 +21,10 @@ export function Preview(props: PreviewProps) {
   let contentRef: HTMLDivElement | undefined;
 
   // Debounced render to avoid excessive re-renders while typing
-  const debouncedRender = debounce(async (content: string) => {
+  const debouncedRender = debounce(async (content: string, basePath?: string) => {
     setIsRendering(true);
     try {
-      const rendered = await renderMarkdown(content);
+      const rendered = await renderMarkdown(content, basePath);
       setHtml(rendered);
 
       // Render mermaid diagrams after HTML is set
@@ -41,10 +43,11 @@ export function Preview(props: PreviewProps) {
     }
   }, 150);
 
-  // Re-render when content changes
+  // Re-render when content or basePath changes
   createEffect(() => {
     const content = props.content;
-    debouncedRender(content);
+    const basePath = props.basePath;
+    debouncedRender(content, basePath);
   });
 
   // Handle checkbox clicks in preview
