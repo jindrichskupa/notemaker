@@ -15,9 +15,11 @@ import {
   EditorView,
   ViewPlugin,
   ViewUpdate,
+  WidgetType,
 } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { Range } from "@codemirror/state";
+import { Range, StateField, StateEffect } from "@codemirror/state";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 /**
  * Decoration marks for inline markdown elements
@@ -39,6 +41,75 @@ const linkUrlMark = Decoration.mark({ class: "cm-link-url" });
  * Hide markdown syntax characters
  */
 const hiddenMark = Decoration.mark({ class: "cm-hidden-syntax" });
+
+/**
+ * StateEffect and StateField for base path (used for resolving relative image paths)
+ */
+const setBasePath = StateEffect.define<string | undefined>();
+
+const basePathField = StateField.define<string | undefined>({
+  create() { return undefined; },
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setBasePath)) return effect.value;
+    }
+    return value;
+  },
+});
+
+/**
+ * Resolve image source path (handles relative paths and local files)
+ */
+function resolveImageSrc(src: string, basePath: string | undefined): string {
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
+    return src;
+  }
+  if (!basePath) return src;
+
+  let absolutePath: string;
+  if (src.startsWith("./")) {
+    const dir = basePath.substring(0, basePath.lastIndexOf("/"));
+    absolutePath = dir + "/" + src.substring(2);
+  } else if (src.startsWith("../")) {
+    const dir = basePath.substring(0, basePath.lastIndexOf("/"));
+    const parentDir = dir.substring(0, dir.lastIndexOf("/"));
+    absolutePath = parentDir + "/" + src.substring(3);
+  } else {
+    const dir = basePath.substring(0, basePath.lastIndexOf("/"));
+    absolutePath = dir + "/" + src;
+  }
+  return convertFileSrc(absolutePath);
+}
+
+/**
+ * Widget for rendering inline images
+ */
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly src: string,
+    readonly alt: string,
+    readonly resolvedSrc: string
+  ) { super(); }
+
+  eq(other: ImageWidget): boolean {
+    return other.src === this.src && other.alt === this.alt;
+  }
+
+  toDOM(): HTMLElement {
+    const container = document.createElement("span");
+    container.className = "cm-inline-image-container";
+    const img = document.createElement("img");
+    img.src = this.resolvedSrc;
+    img.alt = this.alt;
+    img.className = "cm-inline-image";
+    img.loading = "lazy";
+    img.onerror = () => { img.classList.add("cm-inline-image-error"); };
+    container.appendChild(img);
+    return container;
+  }
+
+  ignoreEvent(): boolean { return false; }
+}
 
 // Note: LinkWidget is reserved for future use when we implement clickable links
 // class LinkWidget extends WidgetType { ... }
@@ -169,6 +240,31 @@ function buildDecorations(view: EditorView): DecorationSet {
           case "URL":
             decorations.push(linkUrlMark.range(nodeFrom, nodeTo));
             break;
+
+          // Images ![alt](url)
+          case "Image": {
+            const basePath = view.state.field(basePathField, false);
+            const activeLine = view.state.doc.lineAt(view.state.selection.main.head);
+
+            // Skip widget on active line to allow editing
+            if (activeLine.from <= nodeFrom && activeLine.to >= nodeTo) {
+              break;
+            }
+
+            const imageMatch = text.match(/^!\[([^\]]*)\]\(([^)]*)\)$/);
+            if (imageMatch) {
+              const alt = imageMatch[1];
+              const src = imageMatch[2];
+              const resolvedSrc = resolveImageSrc(src, basePath);
+
+              decorations.push(
+                Decoration.replace({
+                  widget: new ImageWidget(src, alt, resolvedSrc),
+                }).range(nodeFrom, nodeTo)
+              );
+            }
+            break;
+          }
         }
       },
     });
@@ -302,12 +398,38 @@ const inlineMarkdownTheme = EditorView.theme({
     textDecoration: "underline",
     cursor: "pointer",
   },
+
+  // Inline images
+  ".cm-inline-image-container": {
+    display: "block",
+    margin: "8px 0",
+  },
+  ".cm-inline-image": {
+    maxWidth: "400px",
+    maxHeight: "300px",
+    borderRadius: "4px",
+    display: "block",
+  },
+  ".cm-inline-image-error": {
+    width: "100px",
+    height: "60px",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    border: "1px dashed rgba(239, 68, 68, 0.4)",
+    borderRadius: "4px",
+  },
 });
 
 /**
  * Extension array for inline markdown rendering
  */
-export const inlineMarkdownExtension = [inlineMarkdownPlugin, inlineMarkdownTheme];
+export const inlineMarkdownExtension = [basePathField, inlineMarkdownPlugin, inlineMarkdownTheme];
+
+/**
+ * Update the base path for resolving relative image paths
+ */
+export function updateInlineMarkdownBasePath(view: EditorView, basePath: string | undefined): void {
+  view.dispatch({ effects: setBasePath.of(basePath) });
+}
 
 /**
  * Check if inline markdown is enabled (from localStorage)
