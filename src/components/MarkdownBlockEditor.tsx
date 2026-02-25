@@ -14,6 +14,7 @@ import { highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { languages } from "../lib/editor/languages";
 import { inlineMarkdownExtension } from "../lib/editor/inline-markdown";
+import { createImageDropExtension } from "../lib/editor/imageDropExtension";
 import { settingsStore } from "../lib/settings";
 
 export interface MarkdownBlockEditorProps {
@@ -24,6 +25,7 @@ export interface MarkdownBlockEditorProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   readOnly?: boolean;
+  notebookPath?: string;
 }
 
 export function MarkdownBlockEditor(props: MarkdownBlockEditorProps) {
@@ -31,6 +33,9 @@ export function MarkdownBlockEditor(props: MarkdownBlockEditorProps) {
   let editorView: EditorView | undefined;
   const inlineMarkdownCompartment = new Compartment();
   let isUpdatingFromProps = false;
+
+  // Getter for notebook path (for image drop extension)
+  const getNotebookPath = () => props.notebookPath;
 
   onMount(() => {
     if (!containerRef) return;
@@ -126,6 +131,9 @@ export function MarkdownBlockEditor(props: MarkdownBlockEditorProps) {
       updateListener,
       focusListener,
       placeholder("Enter markdown..."),
+
+      // Image paste/drop support (requires notebook path)
+      ...(props.notebookPath ? [createImageDropExtension(getNotebookPath)] : []),
 
       // Theme styling - same as main editor but adapted for blocks (no line numbers, auto-expand)
       EditorView.theme({

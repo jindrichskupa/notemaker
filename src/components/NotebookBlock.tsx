@@ -467,6 +467,7 @@ export function NotebookBlock(props: NotebookBlockProps) {
                 onAddBlockBelow={() => props.onAddBlockBelow()}
                 onMoveUp={() => !props.isFirst && props.onMoveUp()}
                 onMoveDown={() => !props.isLast && props.onMoveDown()}
+                notebookPath={props.notebookPath}
               />
             }
           >
