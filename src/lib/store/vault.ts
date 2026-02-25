@@ -77,6 +77,10 @@ function createVaultStore() {
       if (entry.name.startsWith(".")) {
         return false;
       }
+      // Skip .assets folders (image attachments)
+      if (entry.is_directory && entry.name.endsWith(".assets")) {
+        return false;
+      }
       // Only show markdown files or directories
       return entry.is_directory || entry.name.endsWith(".md");
     });

@@ -92,7 +92,7 @@ class ImageWidget extends WidgetType {
   ) { super(); }
 
   eq(other: ImageWidget): boolean {
-    return other.src === this.src && other.alt === this.alt;
+    return other.src === this.src && other.alt === this.alt && other.resolvedSrc === this.resolvedSrc;
   }
 
   toDOM(): HTMLElement {
