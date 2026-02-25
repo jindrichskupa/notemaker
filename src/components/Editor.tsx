@@ -9,6 +9,7 @@ import {
   inlineMarkdownCompartment,
   inlineMarkdownExtension,
 } from "../lib/editor";
+import { updateInlineMarkdownBasePath } from "../lib/editor/inline-markdown";
 import { createAutoSave, formatLastSaved, AutoSaveController } from "../lib/editor/autosave";
 import { loadVimModePreference, saveVimModePreference, loadVimExtension } from "../lib/editor/vim-mode";
 import { settingsStore } from "../lib/settings";
@@ -156,6 +157,14 @@ export function Editor(props: EditorProps) {
       }
     });
     onCleanup(unsubscribe);
+  });
+
+  // Update inline markdown base path when file path changes (for image resolution)
+  createEffect(() => {
+    const path = props.absoluteFilePath;
+    if (editorView) {
+      updateInlineMarkdownBasePath(editorView, path);
+    }
   });
 
   // Clean up
