@@ -376,14 +376,14 @@ export function EditorWithPreview(props: EditorWithPreviewProps) {
             <Match when={mode() === "split"}>
               <SplitView
                 left={<Editor {...props} content={displayContent()} onChange={handleContentChange} />}
-                right={<Preview content={displayContent()} />}
+                right={<Preview content={displayContent()} basePath={props.absoluteFilePath} />}
                 initialRatio={0.5}
               />
             </Match>
 
             {/* Preview mode - just the preview */}
             <Match when={mode() === "preview"}>
-              <Preview content={displayContent()} class="h-full" />
+              <Preview content={displayContent()} basePath={props.absoluteFilePath} class="h-full" />
             </Match>
           </Switch>
         </Show>
