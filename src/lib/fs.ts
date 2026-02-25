@@ -219,6 +219,16 @@ export async function moveNote(from: string, toDir: string): Promise<string> {
   return invoke<string>("move_note", { from, toDir });
 }
 
+// Attachment operations
+
+export async function saveAttachment(
+  notePath: string,
+  filename: string,
+  data: string // base64 encoded
+): Promise<string> {
+  return invoke<string>("save_attachment", { notePath, filename, data });
+}
+
 // Notebook operations
 
 export async function createNotebook(
