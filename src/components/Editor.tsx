@@ -46,6 +46,9 @@ export function Editor(props: EditorProps) {
     inlineMarkdown: settingsStore.get().editor.inlineMarkdown,
   });
 
+  // Getter for file path (for image drop extension)
+  const getNotePath = () => props.filePath;
+
   // Handle content change
   const handleChange = (content: string) => {
     // Mark that this change came from the editor, so we don't re-sync it back
@@ -83,7 +86,7 @@ export function Editor(props: EditorProps) {
   onMount(() => {
     if (!containerRef) return;
 
-    const extensions = createExtensions(config(), handleSave, handleChange);
+    const extensions = createExtensions(config(), handleSave, handleChange, getNotePath);
 
     const state = EditorState.create({
       doc: props.content,

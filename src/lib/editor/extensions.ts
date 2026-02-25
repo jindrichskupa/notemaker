@@ -8,6 +8,7 @@ import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } 
 import { foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldKeymap } from "@codemirror/language";
 import { languages } from "./languages";
 import { inlineMarkdownExtension } from "./inline-markdown";
+import { createImageDropExtension } from "./imageDropExtension";
 
 export interface EditorConfig {
   vimMode: boolean;
@@ -118,7 +119,8 @@ function createEditorTheme(config: EditorConfig): Extension {
 export function createExtensions(
   config: EditorConfig,
   onSave?: () => void,
-  onChange?: (content: string) => void
+  onChange?: (content: string) => void,
+  getNotePath?: () => string | undefined
 ): Extension[] {
   const extensions: Extension[] = [
     // Core markdown support with code language highlighting
@@ -177,6 +179,9 @@ export function createExtensions(
 
     // Inline markdown rendering (compartmentalized for dynamic toggle)
     inlineMarkdownCompartment.of(config.inlineMarkdown ? inlineMarkdownExtension : []),
+
+    // Image paste/drop support
+    ...(getNotePath ? [createImageDropExtension(getNotePath)] : []),
 
     // Keymaps
     keymap.of([
