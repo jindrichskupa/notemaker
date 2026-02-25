@@ -19,6 +19,8 @@ export interface EditorProps {
   onSave?: (content: string) => Promise<void>;
   config?: Partial<EditorConfig>;
   filePath?: string;
+  /** Absolute file path for image paste/drop - if not provided, filePath is used */
+  absoluteFilePath?: string;
   readOnly?: boolean;
 }
 
@@ -46,8 +48,8 @@ export function Editor(props: EditorProps) {
     inlineMarkdown: settingsStore.get().editor.inlineMarkdown,
   });
 
-  // Getter for file path (for image drop extension)
-  const getNotePath = () => props.filePath;
+  // Getter for file path (for image drop extension - needs absolute path)
+  const getNotePath = () => props.absoluteFilePath || props.filePath;
 
   // Handle content change
   const handleChange = (content: string) => {

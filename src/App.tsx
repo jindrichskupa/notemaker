@@ -369,7 +369,7 @@ function App() {
     return note ? note.content : demoContent();
   };
 
-  // Get current file path
+  // Get current file path (relative, for display)
   const currentFilePath = () => {
     const path = vaultStore.selectedPath();
     if (!path) return "demo.md";
@@ -379,6 +379,11 @@ function App() {
       return path.replace(vault.path + "/", "");
     }
     return path;
+  };
+
+  // Get absolute file path (for image paste/drop)
+  const currentAbsoluteFilePath = () => {
+    return vaultStore.selectedPath() || undefined;
   };
 
   return (
@@ -465,6 +470,7 @@ function App() {
                       onChange={handleChange}
                       onSave={handleSave}
                       filePath={currentFilePath()}
+                      absoluteFilePath={currentAbsoluteFilePath()}
                       initialMode="split"
                       config={{
                         vimMode: false,
