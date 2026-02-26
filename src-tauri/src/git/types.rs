@@ -13,6 +13,10 @@ pub enum GitError {
     InvalidPath(String),
     #[error("No changes to commit")]
     NoChanges,
+    #[error("Failed to open repository: {0}")]
+    OpenRepo(String),
+    #[error("{0}")]
+    Generic(String),
 }
 
 impl serde::Serialize for GitError {

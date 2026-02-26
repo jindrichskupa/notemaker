@@ -635,3 +635,33 @@ pub fn git_pull(vault_path: String) -> Result<PullResult, GitError> {
         message: "Merged successfully".to_string(),
     })
 }
+
+/// Push changes to remote origin
+#[tauri::command]
+pub fn git_push(path: &str) -> Result<String, GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    let mut remote = repo.find_remote("origin")
+        .map_err(|e| GitError::Generic(format!("No remote 'origin': {}", e.message())))?;
+
+    let head = repo.head()
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    let branch_name = head.shorthand().unwrap_or("master");
+
+    // Push requires callbacks for authentication - use default credentials
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        git2::Cred::ssh_key_from_agent(username_from_url.unwrap_or("git"))
+    });
+
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+
+    remote.push(
+        &[&format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name)],
+        Some(&mut push_options)
+    ).map_err(|e| GitError::Generic(format!("Push failed: {}", e.message())))?;
+
+    Ok(format!("Pushed to origin/{}", branch_name))
+}
