@@ -105,6 +105,15 @@ pub fn run() {
             git::git_file_history,
             git::git_show_file,
             git::git_discard,
+            git::git_diff,
+            git::git_branches,
+            git::git_checkout_branch,
+            git::git_pull,
+            git::git_push,
+            git::git_conflicted_files,
+            git::git_resolve_ours,
+            git::git_resolve_theirs,
+            git::git_abort_merge,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]

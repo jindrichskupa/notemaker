@@ -665,3 +665,75 @@ pub fn git_push(path: &str) -> Result<String, GitError> {
 
     Ok(format!("Pushed to origin/{}", branch_name))
 }
+
+/// List files with merge conflicts
+#[tauri::command]
+pub fn git_conflicted_files(path: &str) -> Result<Vec<String>, GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+    let index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    let conflicts: Vec<String> = index.conflicts()
+        .map_err(|e| GitError::Generic(e.message().to_string()))?
+        .filter_map(|c| c.ok())
+        .filter_map(|c| {
+            c.our.or(c.their).or(c.ancestor)
+                .and_then(|e| String::from_utf8(e.path.clone()).ok())
+        })
+        .collect();
+
+    Ok(conflicts)
+}
+
+/// Resolve conflict by accepting our version
+#[tauri::command]
+pub fn git_resolve_ours(path: &str, file_path: &str) -> Result<(), GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    // Checkout our version
+    let mut opts = git2::build::CheckoutBuilder::new();
+    opts.path(file_path).force().use_ours(true);
+    repo.checkout_index(None, Some(&mut opts))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    // Stage the file
+    let mut index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+    index.add_path(std::path::Path::new(file_path))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+    index.write().map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(())
+}
+
+/// Resolve conflict by accepting their version
+#[tauri::command]
+pub fn git_resolve_theirs(path: &str, file_path: &str) -> Result<(), GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    // Checkout their version
+    let mut opts = git2::build::CheckoutBuilder::new();
+    opts.path(file_path).force().use_theirs(true);
+    repo.checkout_index(None, Some(&mut opts))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    // Stage the file
+    let mut index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+    index.add_path(std::path::Path::new(file_path))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+    index.write().map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(())
+}
+
+/// Abort a merge in progress
+#[tauri::command]
+pub fn git_abort_merge(path: &str) -> Result<(), GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    repo.cleanup_state()
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(())
+}
