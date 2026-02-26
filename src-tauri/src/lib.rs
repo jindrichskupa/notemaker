@@ -114,6 +114,10 @@ pub fn run() {
             git::git_resolve_ours,
             git::git_resolve_theirs,
             git::git_abort_merge,
+            git::git_merge,
+            git::git_rebase,
+            git::git_abort_rebase,
+            git::git_continue_rebase,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]

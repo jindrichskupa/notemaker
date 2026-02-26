@@ -737,3 +737,170 @@ pub fn git_abort_merge(path: &str) -> Result<(), GitError> {
 
     Ok(())
 }
+
+/// Merge a branch into current
+#[tauri::command]
+pub fn git_merge(path: &str, branch_name: &str) -> Result<PullResult, GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    let branch = repo.find_branch(branch_name, git2::BranchType::Local)
+        .map_err(|e| GitError::Generic(format!("Branch not found: {}", e.message())))?;
+
+    let branch_commit = repo.reference_to_annotated_commit(branch.get())
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    // Merge
+    repo.merge(&[&branch_commit], None, None)
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    // Check for conflicts
+    let index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    if index.has_conflicts() {
+        let conflicts: Vec<String> = index.conflicts()
+            .map_err(|e| GitError::Generic(e.message().to_string()))?
+            .filter_map(|c| c.ok())
+            .filter_map(|c| {
+                c.our.or(c.their).or(c.ancestor)
+                    .and_then(|e| String::from_utf8(e.path.clone()).ok())
+            })
+            .collect();
+
+        return Ok(PullResult {
+            success: false,
+            conflicts,
+            message: "Merge conflicts detected".to_string(),
+        });
+    }
+
+    Ok(PullResult {
+        success: true,
+        conflicts: vec![],
+        message: format!("Merged {} successfully", branch_name),
+    })
+}
+
+/// Rebase current branch onto another branch
+#[tauri::command]
+pub fn git_rebase(path: &str, onto_branch: &str) -> Result<PullResult, GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    let onto = repo.find_branch(onto_branch, git2::BranchType::Local)
+        .map_err(|e| GitError::Generic(format!("Branch not found: {}", e.message())))?;
+
+    let onto_commit = repo.reference_to_annotated_commit(onto.get())
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    let head = repo.head().map_err(|e| GitError::Generic(e.message().to_string()))?;
+    let head_commit = repo.reference_to_annotated_commit(&head)
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    let mut rebase = repo.rebase(Some(&head_commit), Some(&onto_commit), None, None)
+        .map_err(|e| GitError::Generic(format!("Rebase failed: {}", e.message())))?;
+
+    let sig = repo.signature()
+        .unwrap_or_else(|_| git2::Signature::now("Notemaker", "notemaker@local").unwrap());
+
+    while let Some(op) = rebase.next() {
+        match op {
+            Ok(_) => {
+                let index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+                if index.has_conflicts() {
+                    let conflicts: Vec<String> = index.conflicts()
+                        .map_err(|e| GitError::Generic(e.message().to_string()))?
+                        .filter_map(|c| c.ok())
+                        .filter_map(|c| {
+                            c.our.or(c.their).or(c.ancestor)
+                                .and_then(|e| String::from_utf8(e.path.clone()).ok())
+                        })
+                        .collect();
+
+                    return Ok(PullResult {
+                        success: false,
+                        conflicts,
+                        message: "Rebase conflicts detected".to_string(),
+                    });
+                }
+                rebase.commit(None, &sig, None)
+                    .map_err(|e| GitError::Generic(e.message().to_string()))?;
+            }
+            Err(e) => return Err(GitError::Generic(e.message().to_string())),
+        }
+    }
+
+    rebase.finish(Some(&sig))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(PullResult {
+        success: true,
+        conflicts: vec![],
+        message: format!("Rebased onto {} successfully", onto_branch),
+    })
+}
+
+/// Abort a rebase in progress
+#[tauri::command]
+pub fn git_abort_rebase(path: &str) -> Result<(), GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    let mut rebase = repo.open_rebase(None)
+        .map_err(|e| GitError::Generic(format!("No rebase in progress: {}", e.message())))?;
+
+    rebase.abort()
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(())
+}
+
+/// Continue a rebase after resolving conflicts
+#[tauri::command]
+pub fn git_continue_rebase(path: &str) -> Result<PullResult, GitError> {
+    let repo = Repository::open(path).map_err(|e| GitError::OpenRepo(e.message().to_string()))?;
+
+    let mut rebase = repo.open_rebase(None)
+        .map_err(|e| GitError::Generic(format!("No rebase in progress: {}", e.message())))?;
+
+    let sig = repo.signature()
+        .unwrap_or_else(|_| git2::Signature::now("Notemaker", "notemaker@local").unwrap());
+
+    // Commit current step
+    rebase.commit(None, &sig, None)
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    // Continue with remaining steps
+    while let Some(op) = rebase.next() {
+        match op {
+            Ok(_) => {
+                let index = repo.index().map_err(|e| GitError::Generic(e.message().to_string()))?;
+                if index.has_conflicts() {
+                    let conflicts: Vec<String> = index.conflicts()
+                        .map_err(|e| GitError::Generic(e.message().to_string()))?
+                        .filter_map(|c| c.ok())
+                        .filter_map(|c| {
+                            c.our.or(c.their).or(c.ancestor)
+                                .and_then(|e| String::from_utf8(e.path.clone()).ok())
+                        })
+                        .collect();
+
+                    return Ok(PullResult {
+                        success: false,
+                        conflicts,
+                        message: "More rebase conflicts".to_string(),
+                    });
+                }
+                rebase.commit(None, &sig, None)
+                    .map_err(|e| GitError::Generic(e.message().to_string()))?;
+            }
+            Err(e) => return Err(GitError::Generic(e.message().to_string())),
+        }
+    }
+
+    rebase.finish(Some(&sig))
+        .map_err(|e| GitError::Generic(e.message().to_string()))?;
+
+    Ok(PullResult {
+        success: true,
+        conflicts: vec![],
+        message: "Rebase completed".to_string(),
+    })
+}
