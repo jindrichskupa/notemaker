@@ -54,3 +54,33 @@ pub struct FileHistory {
     pub path: String,
     pub commits: Vec<CommitInfo>,
 }
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DiffLine {
+    pub line_type: String, // "context", "add", "delete"
+    pub old_line_no: Option<u32>,
+    pub new_line_no: Option<u32>,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DiffHunk {
+    pub header: String,
+    pub lines: Vec<DiffLine>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DiffFile {
+    pub path: String,
+    pub status: String, // "added", "modified", "deleted"
+    pub hunks: Vec<DiffHunk>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CommitDiff {
+    pub commit_id: String,
+    pub message: String,
+    pub author: String,
+    pub time: i64,
+    pub files: Vec<DiffFile>,
+}

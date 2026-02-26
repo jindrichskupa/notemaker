@@ -1,5 +1,5 @@
-use super::types::{CommitInfo, FileHistory, FileStatus, GitError, GitStatus};
-use git2::{Repository, Signature, StatusOptions};
+use super::types::{CommitInfo, CommitDiff, DiffFile, DiffHunk, DiffLine, FileHistory, FileStatus, GitError, GitStatus};
+use git2::{Diff, DiffOptions, Repository, Signature, StatusOptions};
 use std::path::Path;
 
 /// Initialize a git repository in the vault
@@ -317,4 +317,149 @@ pub fn git_discard(vault_path: String, file_path: String) -> Result<(), GitError
     repo.checkout_head(Some(&mut checkout))?;
 
     Ok(())
+}
+
+/// Get diff for a specific commit
+#[tauri::command]
+pub fn git_diff(vault_path: String, commit_id: String) -> Result<CommitDiff, GitError> {
+    let path = Path::new(&vault_path);
+    let repo = Repository::open(path).map_err(|_| GitError::NotARepository)?;
+
+    // Find the commit
+    let oid = git2::Oid::from_str(&commit_id)?;
+    let commit = repo.find_commit(oid)?;
+
+    // Get commit metadata
+    let message = commit.message().unwrap_or("").to_string();
+    let author = commit.author().name().unwrap_or("Unknown").to_string();
+    let time = commit.time().seconds();
+
+    // Get the commit tree
+    let commit_tree = commit.tree()?;
+
+    // Get parent tree (if exists) for comparison
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(commit.parent(0)?.tree()?)
+    } else {
+        None
+    };
+
+    // Generate diff between parent tree and commit tree
+    let mut diff_opts = DiffOptions::new();
+    let diff: Diff = repo.diff_tree_to_tree(
+        parent_tree.as_ref(),
+        Some(&commit_tree),
+        Some(&mut diff_opts),
+    )?;
+
+    // Parse the diff into our structures
+    let mut files: Vec<DiffFile> = Vec::new();
+    let mut current_file: Option<DiffFile> = None;
+    let mut current_hunk: Option<DiffHunk> = None;
+
+    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+        // Handle file header
+        if let Some(new_file) = delta.new_file().path() {
+            let file_path = new_file.to_string_lossy().to_string();
+
+            // Determine file status
+            let status = match delta.status() {
+                git2::Delta::Added => "added",
+                git2::Delta::Deleted => "deleted",
+                git2::Delta::Modified => "modified",
+                git2::Delta::Renamed => "renamed",
+                git2::Delta::Copied => "copied",
+                _ => "modified",
+            };
+
+            // Check if we need to start a new file
+            let need_new_file = current_file.as_ref().map_or(true, |f| f.path != file_path);
+
+            if need_new_file {
+                // Save current hunk to current file if exists
+                if let Some(hunk) = current_hunk.take() {
+                    if let Some(ref mut file) = current_file {
+                        file.hunks.push(hunk);
+                    }
+                }
+
+                // Save current file to files list if exists
+                if let Some(file) = current_file.take() {
+                    files.push(file);
+                }
+
+                // Start new file
+                current_file = Some(DiffFile {
+                    path: file_path,
+                    status: status.to_string(),
+                    hunks: Vec::new(),
+                });
+            }
+        }
+
+        // Handle hunk header
+        if let Some(hunk_info) = hunk {
+            // Save previous hunk if exists
+            if let Some(hunk) = current_hunk.take() {
+                if let Some(ref mut file) = current_file {
+                    file.hunks.push(hunk);
+                }
+            }
+
+            // Start new hunk
+            let header = format!(
+                "@@ -{},{} +{},{} @@",
+                hunk_info.old_start(),
+                hunk_info.old_lines(),
+                hunk_info.new_start(),
+                hunk_info.new_lines()
+            );
+
+            current_hunk = Some(DiffHunk {
+                header,
+                lines: Vec::new(),
+            });
+        }
+
+        // Handle diff lines
+        let line_type = match line.origin() {
+            '+' => "add",
+            '-' => "delete",
+            ' ' => "context",
+            _ => return true, // Skip other line types (file headers, etc.)
+        };
+
+        let content = String::from_utf8_lossy(line.content()).to_string();
+
+        let diff_line = DiffLine {
+            line_type: line_type.to_string(),
+            old_line_no: line.old_lineno(),
+            new_line_no: line.new_lineno(),
+            content,
+        };
+
+        if let Some(ref mut hunk) = current_hunk {
+            hunk.lines.push(diff_line);
+        }
+
+        true
+    })?;
+
+    // Don't forget to save the last hunk and file
+    if let Some(hunk) = current_hunk.take() {
+        if let Some(ref mut file) = current_file {
+            file.hunks.push(hunk);
+        }
+    }
+    if let Some(file) = current_file.take() {
+        files.push(file);
+    }
+
+    Ok(CommitDiff {
+        commit_id,
+        message,
+        author,
+        time,
+        files,
+    })
 }
