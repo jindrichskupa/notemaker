@@ -15,10 +15,21 @@ import {
   gitLog,
   gitInit,
   formatCommitTime,
+  gitDiff,
+  gitPull,
+  gitPush,
+  gitMerge,
+  gitRebase,
+  gitBranches,
   type GitStatus,
   type FileStatus,
   type CommitInfo,
+  type CommitDiff,
+  type BranchInfo,
 } from "../lib/git";
+import { BranchSwitcher } from "./BranchSwitcher";
+import { DiffViewer } from "./DiffViewer";
+import { ConflictResolver } from "./ConflictResolver";
 
 export interface GitPanelProps {
   isOpen: boolean;
@@ -35,6 +46,17 @@ export function GitPanel(props: GitPanelProps) {
   const [commitMessage, setCommitMessage] = createSignal("");
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+
+  // New state for integrated components
+  const [selectedCommit, setSelectedCommit] = createSignal<CommitDiff | null>(null);
+  const [conflicts, setConflicts] = createSignal<string[]>([]);
+  const [conflictOperation, setConflictOperation] = createSignal<"merge" | "rebase" | "pull">("merge");
+  const [showConflictResolver, setShowConflictResolver] = createSignal(false);
+  const [branches, setBranches] = createSignal<BranchInfo[]>([]);
+  const [showMergeSelect, setShowMergeSelect] = createSignal(false);
+  const [showRebaseSelect, setShowRebaseSelect] = createSignal(false);
+
+  const vaultPath = () => vaultStore.vault()?.path;
 
   // Refresh git status when panel opens or vault changes
   createEffect(() => {
@@ -67,6 +89,110 @@ export function GitPanel(props: GitPanelProps) {
       setError(err instanceof Error ? err.message : "Failed to get git status");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBranches = async () => {
+    const path = vaultPath();
+    if (!path) return;
+    try {
+      const result = await gitBranches(path);
+      setBranches(result);
+    } catch (e) {
+      console.error("Failed to load branches:", e);
+    }
+  };
+
+  const handlePull = async () => {
+    const path = vaultPath();
+    if (!path) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await gitPull(path);
+      if (!result.success && result.conflicts.length > 0) {
+        setConflicts(result.conflicts);
+        setConflictOperation("pull");
+        setShowConflictResolver(true);
+      }
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePush = async () => {
+    const path = vaultPath();
+    if (!path) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await gitPush(path);
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMerge = async (branchName: string) => {
+    const path = vaultPath();
+    if (!path) return;
+
+    setShowMergeSelect(false);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await gitMerge(path, branchName);
+      if (!result.success && result.conflicts.length > 0) {
+        setConflicts(result.conflicts);
+        setConflictOperation("merge");
+        setShowConflictResolver(true);
+      }
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRebase = async (branchName: string) => {
+    const path = vaultPath();
+    if (!path) return;
+
+    setShowRebaseSelect(false);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await gitRebase(path, branchName);
+      if (!result.success && result.conflicts.length > 0) {
+        setConflicts(result.conflicts);
+        setConflictOperation("rebase");
+        setShowConflictResolver(true);
+      }
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewCommit = async (commitId: string) => {
+    const path = vaultPath();
+    if (!path) return;
+
+    try {
+      const diff = await gitDiff(path, commitId);
+      setSelectedCommit(diff);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -182,11 +308,7 @@ export function GitPanel(props: GitPanelProps) {
           <div class="flex items-center justify-between border-b border-gray-700" style={{ padding: "12px 16px" }}>
             <div class="flex items-center" style={{ gap: "12px" }}>
               <h2 class="text-lg font-medium text-gray-100">Git</h2>
-              <Show when={status()?.branch}>
-                <span class="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-300">
-                  {status()?.branch}
-                </span>
-              </Show>
+              <BranchSwitcher onSwitch={refreshStatus} />
             </div>
             <div class="flex items-center" style={{ gap: "8px" }}>
               <button
@@ -209,6 +331,74 @@ export function GitPanel(props: GitPanelProps) {
               </button>
             </div>
           </div>
+
+          {/* Operation buttons */}
+          <Show when={status()?.is_repo}>
+            <div class="flex items-center border-b border-gray-700 bg-gray-800/50" style={{ padding: "8px 16px", gap: "8px" }}>
+              <button
+                onClick={handlePull}
+                disabled={isLoading()}
+                class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded flex items-center disabled:opacity-50"
+                style={{ gap: "4px" }}
+              >
+                <span style={{ "font-size": "10px" }}>&#8595;</span> Pull
+              </button>
+              <button
+                onClick={handlePush}
+                disabled={isLoading()}
+                class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded flex items-center disabled:opacity-50"
+                style={{ gap: "4px" }}
+              >
+                <span style={{ "font-size": "10px" }}>&#8593;</span> Push
+              </button>
+              <div class="relative">
+                <button
+                  onClick={() => { loadBranches(); setShowMergeSelect(!showMergeSelect()); setShowRebaseSelect(false); }}
+                  disabled={isLoading()}
+                  class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded disabled:opacity-50"
+                >
+                  Merge
+                </button>
+                <Show when={showMergeSelect()}>
+                  <div class="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 min-w-[120px]">
+                    <For each={branches().filter(b => !b.is_current)}>
+                      {(branch) => (
+                        <button
+                          onClick={() => handleMerge(branch.name)}
+                          class="block w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
+                        >
+                          {branch.name}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+              <div class="relative">
+                <button
+                  onClick={() => { loadBranches(); setShowRebaseSelect(!showRebaseSelect()); setShowMergeSelect(false); }}
+                  disabled={isLoading()}
+                  class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded disabled:opacity-50"
+                >
+                  Rebase
+                </button>
+                <Show when={showRebaseSelect()}>
+                  <div class="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg z-10 min-w-[120px]">
+                    <For each={branches().filter(b => !b.is_current)}>
+                      {(branch) => (
+                        <button
+                          onClick={() => handleRebase(branch.name)}
+                          class="block w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
+                        >
+                          {branch.name}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </div>
+          </Show>
 
           {/* Not a repo */}
           <Show when={status() && !status()?.is_repo}>
@@ -248,7 +438,7 @@ export function GitPanel(props: GitPanelProps) {
                 </Show>
               </button>
               <button
-                onClick={() => setActiveTab("history")}
+                onClick={() => { setActiveTab("history"); setSelectedCommit(null); }}
                 style={{ padding: "8px 16px" }}
                 class={`text-sm font-medium transition-colors ${
                   activeTab() === "history"
@@ -374,7 +564,7 @@ export function GitPanel(props: GitPanelProps) {
                       />
                       <div class="flex items-center justify-between" style={{ "margin-top": "8px" }}>
                         <span class="text-xs text-gray-500">
-                          ⌘↵ to commit
+                          Cmd+Enter to commit
                         </span>
                         <button
                           onClick={handleCommit}
@@ -393,35 +583,59 @@ export function GitPanel(props: GitPanelProps) {
               {/* History tab */}
               <Show when={activeTab() === "history"}>
                 <div style={{ padding: "16px" }}>
-                  <Show
-                    when={commits().length > 0}
-                    fallback={
-                      <div class="text-center text-gray-500" style={{ padding: "32px 0" }}>
-                        No commits yet
-                      </div>
-                    }
-                  >
-                    <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
-                      <For each={commits()}>
-                        {(commit) => (
-                          <div class="bg-gray-700/30 rounded hover:bg-gray-700/50 transition-colors" style={{ padding: "8px 12px" }}>
-                            <div class="flex items-start justify-between" style={{ gap: "16px" }}>
-                              <div class="flex-1 min-w-0">
-                                <p class="text-sm text-gray-200 truncate">
-                                  {commit.message.split("\n")[0]}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                  {commit.author} &middot;{" "}
-                                  {formatCommitTime(commit.timestamp)}
-                                </p>
+                  <Show when={selectedCommit()} fallback={
+                    <Show
+                      when={commits().length > 0}
+                      fallback={
+                        <div class="text-center text-gray-500" style={{ padding: "32px 0" }}>
+                          No commits yet
+                        </div>
+                      }
+                    >
+                      <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
+                        <For each={commits()}>
+                          {(commit) => (
+                            <div
+                              onClick={() => handleViewCommit(commit.id)}
+                              class="bg-gray-700/30 rounded hover:bg-gray-700/50 transition-colors cursor-pointer"
+                              style={{ padding: "8px 12px" }}
+                            >
+                              <div class="flex items-start justify-between" style={{ gap: "16px" }}>
+                                <div class="flex-1 min-w-0">
+                                  <p class="text-sm text-gray-200 truncate">
+                                    {commit.message.split("\n")[0]}
+                                  </p>
+                                  <p class="text-xs text-gray-500 mt-1">
+                                    {commit.author} &middot;{" "}
+                                    {formatCommitTime(commit.timestamp)}
+                                  </p>
+                                </div>
+                                <code class="text-xs text-gray-500 font-mono">
+                                  {commit.id.slice(0, 7)}
+                                </code>
                               </div>
-                              <code class="text-xs text-gray-500 font-mono">
-                                {commit.id.slice(0, 7)}
-                              </code>
                             </div>
-                          </div>
-                        )}
-                      </For>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  }>
+                    <div>
+                      <button
+                        onClick={() => setSelectedCommit(null)}
+                        class="flex items-center text-sm text-blue-400 hover:text-blue-300 mb-3"
+                        style={{ gap: "4px" }}
+                      >
+                        <span style={{ "font-size": "12px" }}>&#8592;</span> Back to History
+                      </button>
+                      <div class="mb-4 p-3 bg-gray-800 rounded-lg">
+                        <div class="text-xs text-gray-500 mb-1">Commit {selectedCommit()!.commit_id.slice(0, 7)}</div>
+                        <div class="text-sm text-gray-200 mb-2">{selectedCommit()!.message}</div>
+                        <div class="text-xs text-gray-400">
+                          {selectedCommit()!.author} &middot; {formatCommitTime(selectedCommit()!.time)}
+                        </div>
+                      </div>
+                      <DiffViewer files={selectedCommit()!.files} />
                     </div>
                   </Show>
                 </div>
@@ -437,6 +651,24 @@ export function GitPanel(props: GitPanelProps) {
           </Show>
         </div>
       </div>
+
+      {/* Conflict Resolver */}
+      <Show when={showConflictResolver()}>
+        <ConflictResolver
+          conflicts={conflicts()}
+          operation={conflictOperation()}
+          onComplete={() => {
+            setShowConflictResolver(false);
+            setConflicts([]);
+            refreshStatus();
+          }}
+          onAbort={() => {
+            setShowConflictResolver(false);
+            setConflicts([]);
+            refreshStatus();
+          }}
+        />
+      </Show>
     </Show>
   );
 }
