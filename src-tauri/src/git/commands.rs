@@ -1,4 +1,4 @@
-use super::types::{BranchInfo, CommitInfo, CommitDiff, DiffFile, DiffHunk, DiffLine, FileHistory, FileStatus, GitError, GitStatus};
+use super::types::{BranchInfo, CommitInfo, CommitDiff, DiffFile, DiffHunk, DiffLine, FileHistory, FileStatus, GitError, GitStatus, PullResult};
 use git2::{Diff, DiffOptions, Repository, Signature, StatusOptions};
 use std::path::Path;
 
@@ -506,4 +506,132 @@ pub fn git_checkout_branch(vault_path: String, branch_name: String) -> Result<()
     repo.set_head(&format!("refs/heads/{}", branch_name))?;
 
     Ok(())
+}
+
+/// Pull changes from remote origin
+#[tauri::command]
+pub fn git_pull(vault_path: String) -> Result<PullResult, GitError> {
+    let path = Path::new(&vault_path);
+    let repo = Repository::open(path).map_err(|_| GitError::NotARepository)?;
+
+    // Find remote "origin"
+    let mut remote = repo.find_remote("origin")?;
+
+    // Get current branch name
+    let head = repo.head()?;
+    let branch_name = head
+        .shorthand()
+        .ok_or_else(|| GitError::InvalidPath("Cannot determine current branch".to_string()))?
+        .to_string();
+
+    // Fetch from remote
+    let fetch_refspecs: &[&str] = &[];
+    remote.fetch(fetch_refspecs, None, None)?;
+
+    // Get FETCH_HEAD reference
+    let fetch_head = repo.find_reference("FETCH_HEAD")?;
+    let fetch_commit = repo.reference_to_annotated_commit(&fetch_head)?;
+
+    // Perform merge analysis
+    let (analysis, _preference) = repo.merge_analysis(&[&fetch_commit])?;
+
+    if analysis.is_up_to_date() {
+        return Ok(PullResult {
+            success: true,
+            conflicts: Vec::new(),
+            message: "Already up to date".to_string(),
+        });
+    }
+
+    if analysis.is_fast_forward() {
+        // Fast-forward merge
+        let refname = format!("refs/heads/{}", branch_name);
+        let mut reference = repo.find_reference(&refname)?;
+        reference.set_target(fetch_commit.id(), "Fast-forward")?;
+
+        // Checkout the new HEAD
+        repo.set_head(&refname)?;
+        let mut checkout = git2::build::CheckoutBuilder::new();
+        checkout.force();
+        repo.checkout_head(Some(&mut checkout))?;
+
+        return Ok(PullResult {
+            success: true,
+            conflicts: Vec::new(),
+            message: format!("Fast-forward to {}", &fetch_commit.id().to_string()[..7]),
+        });
+    }
+
+    // Normal merge required
+    let fetch_commit_obj = repo.find_commit(fetch_commit.id())?;
+    repo.merge(&[&fetch_commit], None, None)?;
+
+    // Check for conflicts
+    let mut index = repo.index()?;
+
+    if index.has_conflicts() {
+        // Collect conflicted file paths
+        let mut conflicts = Vec::new();
+        for conflict in index.conflicts()? {
+            if let Ok(conflict) = conflict {
+                if let Some(ancestor) = conflict.ancestor {
+                    let path = String::from_utf8_lossy(&ancestor.path).to_string();
+                    if !conflicts.contains(&path) {
+                        conflicts.push(path);
+                    }
+                }
+                if let Some(our) = conflict.our {
+                    let path = String::from_utf8_lossy(&our.path).to_string();
+                    if !conflicts.contains(&path) {
+                        conflicts.push(path);
+                    }
+                }
+                if let Some(their) = conflict.their {
+                    let path = String::from_utf8_lossy(&their.path).to_string();
+                    if !conflicts.contains(&path) {
+                        conflicts.push(path);
+                    }
+                }
+            }
+        }
+
+        return Ok(PullResult {
+            success: false,
+            conflicts,
+            message: "Merge conflicts detected. Please resolve conflicts and commit.".to_string(),
+        });
+    }
+
+    // No conflicts - auto-commit the merge
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+
+    // Get signature
+    let sig = match repo.signature() {
+        Ok(s) => s,
+        Err(_) => Signature::now("Notemaker User", "user@notemaker.local")?,
+    };
+
+    // Get HEAD commit as parent
+    let head_commit = repo.head()?.peel_to_commit()?;
+
+    // Create merge commit with two parents
+    let message = format!("Merge remote-tracking branch 'origin/{}'", branch_name);
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        &message,
+        &tree,
+        &[&head_commit, &fetch_commit_obj],
+    )?;
+
+    // Clean up merge state
+    repo.cleanup_state()?;
+
+    Ok(PullResult {
+        success: true,
+        conflicts: Vec::new(),
+        message: "Merged successfully".to_string(),
+    })
 }

@@ -91,3 +91,10 @@ pub struct BranchInfo {
     pub is_current: bool,
     pub is_remote: bool,
 }
+
+#[derive(Debug, Serialize, Clone)]
+pub struct PullResult {
+    pub success: bool,
+    pub conflicts: Vec<String>,
+    pub message: String,
+}
