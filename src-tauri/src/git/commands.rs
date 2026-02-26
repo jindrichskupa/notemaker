@@ -1,4 +1,4 @@
-use super::types::{CommitInfo, CommitDiff, DiffFile, DiffHunk, DiffLine, FileHistory, FileStatus, GitError, GitStatus};
+use super::types::{BranchInfo, CommitInfo, CommitDiff, DiffFile, DiffHunk, DiffLine, FileHistory, FileStatus, GitError, GitStatus};
 use git2::{Diff, DiffOptions, Repository, Signature, StatusOptions};
 use std::path::Path;
 
@@ -462,4 +462,48 @@ pub fn git_diff(vault_path: String, commit_id: String) -> Result<CommitDiff, Git
         time,
         files,
     })
+}
+
+/// Get list of branches
+#[tauri::command]
+pub fn git_branches(vault_path: String) -> Result<Vec<BranchInfo>, GitError> {
+    let path = Path::new(&vault_path);
+    let repo = Repository::open(path).map_err(|_| GitError::NotARepository)?;
+
+    let mut branches = Vec::new();
+    let head = repo.head().ok();
+    let current_branch = head.as_ref()
+        .and_then(|h| h.shorthand())
+        .map(|s| s.to_string());
+
+    for branch_result in repo.branches(Some(git2::BranchType::Local))? {
+        if let Ok((branch, _)) = branch_result {
+            if let Ok(Some(name)) = branch.name() {
+                branches.push(BranchInfo {
+                    name: name.to_string(),
+                    is_current: current_branch.as_deref() == Some(name),
+                    is_remote: false,
+                });
+            }
+        }
+    }
+
+    Ok(branches)
+}
+
+/// Checkout a branch
+#[tauri::command]
+pub fn git_checkout_branch(vault_path: String, branch_name: String) -> Result<(), GitError> {
+    let path = Path::new(&vault_path);
+    let repo = Repository::open(path).map_err(|_| GitError::NotARepository)?;
+
+    let branch = repo.find_branch(&branch_name, git2::BranchType::Local)?;
+
+    let commit = branch.get().peel_to_commit()?;
+
+    repo.checkout_tree(commit.as_object(), None)?;
+
+    repo.set_head(&format!("refs/heads/{}", branch_name))?;
+
+    Ok(())
 }

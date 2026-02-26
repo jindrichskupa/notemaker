@@ -84,3 +84,10 @@ pub struct CommitDiff {
     pub time: i64,
     pub files: Vec<DiffFile>,
 }
+
+#[derive(Debug, Serialize, Clone)]
+pub struct BranchInfo {
+    pub name: String,
+    pub is_current: bool,
+    pub is_remote: bool,
+}
