@@ -126,6 +126,9 @@ importers:
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
+      '@types/hast':
+        specifier: ^3.0.4
+        version: 3.0.4
       autoprefixer:
         specifier: ^10.4.24
         version: 10.4.24(postcss@8.5.6)
