@@ -31,6 +31,44 @@ export interface FileHistory {
   commits: CommitInfo[];
 }
 
+export interface DiffLine {
+  line_type: "context" | "add" | "delete";
+  old_line_no: number | null;
+  new_line_no: number | null;
+  content: string;
+}
+
+export interface DiffHunk {
+  header: string;
+  lines: DiffLine[];
+}
+
+export interface DiffFile {
+  path: string;
+  status: "added" | "modified" | "deleted";
+  hunks: DiffHunk[];
+}
+
+export interface CommitDiff {
+  commit_id: string;
+  message: string;
+  author: string;
+  time: number;
+  files: DiffFile[];
+}
+
+export interface BranchInfo {
+  name: string;
+  is_current: boolean;
+  is_remote: boolean;
+}
+
+export interface PullResult {
+  success: boolean;
+  conflicts: string[];
+  message: string;
+}
+
 /**
  * Initialize a git repository in the vault
  */
@@ -114,6 +152,97 @@ export async function gitShowFile(
  */
 export async function gitDiscard(vaultPath: string, filePath: string): Promise<void> {
   return invoke("git_discard", { vaultPath, filePath });
+}
+
+/**
+ * Get diff for a specific commit
+ */
+export async function gitDiff(path: string, commitId: string): Promise<CommitDiff> {
+  return invoke<CommitDiff>("git_diff", { path, commitId });
+}
+
+/**
+ * Get list of branches
+ */
+export async function gitBranches(path: string): Promise<BranchInfo[]> {
+  return invoke<BranchInfo[]>("git_branches", { path });
+}
+
+/**
+ * Checkout a branch
+ */
+export async function gitCheckoutBranch(path: string, branchName: string): Promise<void> {
+  return invoke("git_checkout_branch", { path, branchName });
+}
+
+/**
+ * Pull changes from remote
+ */
+export async function gitPull(path: string): Promise<PullResult> {
+  return invoke<PullResult>("git_pull", { path });
+}
+
+/**
+ * Push changes to remote
+ */
+export async function gitPush(path: string): Promise<string> {
+  return invoke<string>("git_push", { path });
+}
+
+/**
+ * Merge a branch into current branch
+ */
+export async function gitMerge(path: string, branchName: string): Promise<PullResult> {
+  return invoke<PullResult>("git_merge", { path, branchName });
+}
+
+/**
+ * Rebase current branch onto another branch
+ */
+export async function gitRebase(path: string, ontoBranch: string): Promise<PullResult> {
+  return invoke<PullResult>("git_rebase", { path, ontoBranch });
+}
+
+/**
+ * Get list of conflicted files
+ */
+export async function gitConflictedFiles(path: string): Promise<string[]> {
+  return invoke<string[]>("git_conflicted_files", { path });
+}
+
+/**
+ * Resolve conflict by keeping our version
+ */
+export async function gitResolveOurs(path: string, filePath: string): Promise<void> {
+  return invoke("git_resolve_ours", { path, filePath });
+}
+
+/**
+ * Resolve conflict by keeping their version
+ */
+export async function gitResolveTheirs(path: string, filePath: string): Promise<void> {
+  return invoke("git_resolve_theirs", { path, filePath });
+}
+
+/**
+ * Abort an in-progress merge
+ */
+export async function gitAbortMerge(path: string): Promise<void> {
+  return invoke("git_abort_merge", { path });
+}
+
+/**
+ * Abort an in-progress rebase
+ */
+export async function gitAbortRebase(path: string): Promise<void> {
+  return invoke("git_abort_rebase", { path });
+}
+
+/**
+ * Continue a paused rebase after resolving conflicts
+ */
+export async function gitContinueRebase(path: string): Promise<PullResult> {
+  return invoke<PullResult>("git_continue_rebase", { path });
 }
 
 /**
