@@ -232,8 +232,8 @@ notemaker/
 | I-001 | **Konverze poznámky na notebook** | Střední | ✅ Hotovo - `convert.ts`, Rust command `convert_note_to_notebook`, Command Palette "Convert to Notebook" |
 | I-002 | **UI/UX vylepšení** | Střední | ✅ Hotovo - CSS variables pro appearance, tooltips, touch targets, vylepšené spacing pro kbd elementy |
 | I-003 | **REQ-021 Themes** | ✅ Hotovo | Light/Dark/System theme. Settings → Appearance → Theme. Zkratka ⌘⇧L pro toggle. CSS overrides pro všechny komponenty v light mode. |
-| I-004 | **REQ-011 Git Conflict Resolution** | Nízká | UI pro řešení merge konfliktů. Odloženo. |
-| I-005 | **REQ-012 Git History UI** | Nízká | Vizualizace historie commitů. Odloženo. |
+| I-004 | **REQ-011 Git Conflict Resolution** | ✅ Hotovo | ConflictResolver dialog pro řešení konfliktů z pull/merge/rebase. Keep Ours/Theirs/Open in Editor. |
+| I-005 | **REQ-012 Git History UI** | ✅ Hotovo | DiffViewer pro zobrazení změn v commitech. BranchSwitcher pro přepínání větví. Pull/Push/Merge/Rebase tlačítka. |
 | I-006 | **Testing** | ✅ Hotovo | Vitest + happy-dom. 55 unit testů pro: settings store, recent vaults, command registry, frontmatter parser. Scripty: `pnpm test`, `pnpm test:run`, `pnpm test:coverage`. |
 | I-007 | **Performance** | Nízká | Code splitting, lazy loading velkých dependencies (Mermaid, CodeMirror langs). |
 | I-008 | **Podpora secrets** | ✅ Hotovo | Implementováno pomocí `age` crate. Password-based (scrypt) i identity file šifrování. EncryptionSession pro bezpečnou session cache. UI: PasswordDialog, VaultSettings/Encryption tab. |

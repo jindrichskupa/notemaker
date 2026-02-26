@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { For } from "solid-js";
 import type { DiffFile } from "../lib/git/api";
 
 interface DiffViewerProps {
