@@ -2,6 +2,24 @@
 
 All notable changes to Notemaker will be documented in this file.
 
+## [0.5.0] - 2026-03-02
+
+### Git UI Improvements
+
+- **Conflict Resolution** - New ConflictResolver dialog for handling merge/rebase conflicts with Keep Ours, Keep Theirs, and Open in Editor options
+- **Diff Viewer** - View file changes in commits with syntax-highlighted diffs
+- **Branch Switcher** - Easy branch switching with dropdown in Git panel
+- **Advanced Git Operations** - Pull, Push, Merge, and Rebase buttons in Git panel
+
+### Technical
+
+- New `ConflictResolver` component for merge conflict handling
+- New `DiffViewer` component for commit diffs
+- New `BranchSwitcher` component for branch management
+- Integrated all new components into GitPanel
+
+---
+
 ## [0.2.2] - 2026-02-13
 
 ### Fixes
