@@ -99,16 +99,6 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           set -e
-
-          # Debug: show what tauri-action created
-          echo "=== Searching for build artifacts ==="
-          echo "Looking in src-tauri/target/"
-          find src-tauri/target -name "*.dmg" -o -name "*.app" -type d 2>/dev/null | head -20 || true
-          echo ""
-          echo "=== Bundle directory structure ==="
-          ls -laR src-tauri/target/${{ matrix.target }}/release/bundle/ 2>/dev/null | head -50 || echo "Bundle dir not found"
-          echo ""
-
           BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
 
           # Find the DMG anywhere in bundle
@@ -135,26 +125,33 @@ jobs:
             fi
             echo "Found app: $APP_NAME"
 
-            # Copy app to work directory
-            cp -R "$MOUNT_POINT/$APP_NAME" "$WORK_DIR/"
+            # Create DMG content directory
+            DMG_CONTENT="$WORK_DIR/dmg_content"
+            mkdir -p "$DMG_CONTENT"
+
+            # Copy app to DMG content
+            cp -R "$MOUNT_POINT/$APP_NAME" "$DMG_CONTENT/"
+
+            # Create Applications symlink
+            ln -s /Applications "$DMG_CONTENT/Applications"
 
             # Unmount original DMG
             hdiutil detach "$MOUNT_POINT" -quiet
 
             # Sign the app with ad-hoc signature
             echo "Signing app..."
-            codesign --force --deep --sign - "$WORK_DIR/$APP_NAME"
+            codesign --force --deep --sign - "$DMG_CONTENT/$APP_NAME"
 
             # Verify signature
             echo "Verifying signature..."
-            codesign --verify --verbose "$WORK_DIR/$APP_NAME"
+            codesign --verify --verbose "$DMG_CONTENT/$APP_NAME"
 
             # Remove old DMG
             rm "$DMG_PATH"
 
-            # Create new DMG with signed app
+            # Create new DMG with signed app and Applications symlink
             echo "Creating new DMG..."
-            hdiutil create -volname "Notemaker" -srcfolder "$WORK_DIR/$APP_NAME" -ov -format UDZO "$DMG_PATH"
+            hdiutil create -volname "Notemaker" -srcfolder "$DMG_CONTENT" -ov -format UDZO "$DMG_PATH"
 
             # Cleanup
             rm -rf "$WORK_DIR"
@@ -171,12 +168,20 @@ jobs:
               echo "Verifying signature..."
               codesign --verify --verbose "$APP_PATH"
 
-              # Create DMG from signed app
-              APP_NAME=$(basename "$APP_PATH")
+              # Create DMG content with app and Applications symlink
+              WORK_DIR=$(mktemp -d)
+              DMG_CONTENT="$WORK_DIR/dmg_content"
+              mkdir -p "$DMG_CONTENT"
+              cp -R "$APP_PATH" "$DMG_CONTENT/"
+              ln -s /Applications "$DMG_CONTENT/Applications"
+
+              # Create DMG
               DMG_DIR=$(dirname "$APP_PATH")
               DMG_PATH="$DMG_DIR/Notemaker_${{ matrix.target }}.dmg"
               echo "Creating DMG at: $DMG_PATH"
-              hdiutil create -volname "Notemaker" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+              hdiutil create -volname "Notemaker" -srcfolder "$DMG_CONTENT" -ov -format UDZO "$DMG_PATH"
+
+              rm -rf "$WORK_DIR"
               echo "Done!"
             else
               echo "ERROR: No .app or .dmg found!"
