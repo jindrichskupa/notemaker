@@ -23,7 +23,7 @@ export interface NotebookBlockProps {
 }
 
 // Languages that can be executed
-const EXECUTABLE_LANGUAGES = ["shell", "python", "ruby"];
+const EXECUTABLE_LANGUAGES = ["shell", "python", "ruby", "hurl"];
 
 // All available languages - Markdown is default and first
 const LANGUAGES = [
@@ -31,6 +31,7 @@ const LANGUAGES = [
   { value: "shell", label: "Shell", executable: true },
   { value: "python", label: "Python", executable: true },
   { value: "ruby", label: "Ruby", executable: true },
+  { value: "hurl", label: "Hurl", executable: true },
   { value: "javascript", label: "JavaScript", executable: false },
   { value: "typescript", label: "TypeScript", executable: false },
   { value: "sql", label: "SQL", executable: false },
