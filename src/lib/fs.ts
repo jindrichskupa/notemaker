@@ -109,6 +109,7 @@ export interface InterpreterSettings {
   python?: string;
   ruby?: string;
   node?: string;
+  hurl?: string;
 }
 
 export interface VaultConfig {

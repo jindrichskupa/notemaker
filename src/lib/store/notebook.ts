@@ -416,6 +416,8 @@ function createNotebookStore() {
       case "javascript":
       case "node":
         return interpreters.node || undefined;
+      case "hurl":
+        return interpreters.hurl || undefined;
       default:
         return undefined;
     }
