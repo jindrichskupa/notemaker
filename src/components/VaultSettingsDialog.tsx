@@ -759,6 +759,17 @@ function InterpreterSettingsTab(props: { config: VaultConfig; onUpdate: UpdateFn
             style={{ padding: "4px 8px" }}
           />
         </SettingRow>
+
+        <SettingRow label="Hurl" description="Default: hurl">
+          <input
+            type="text"
+            value={props.config.interpreters?.hurl || ""}
+            onInput={(e) => props.onUpdate("interpreters", "hurl", e.currentTarget.value || undefined)}
+            placeholder="/usr/local/bin/hurl"
+            class="w-48 bg-gray-700 border border-gray-600 rounded text-sm text-gray-200 font-mono"
+            style={{ padding: "4px 8px" }}
+          />
+        </SettingRow>
       </SettingGroup>
 
       <SettingGroup title="Environment">
