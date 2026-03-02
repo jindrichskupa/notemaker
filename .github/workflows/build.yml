@@ -95,17 +95,63 @@ jobs:
         with:
           args: --target ${{ matrix.target }}
 
-      - name: Sign macOS app (ad-hoc)
+      - name: Sign macOS app and recreate DMG
         if: matrix.platform == 'macos-latest'
         run: |
-          # Find and sign the .app bundle
-          APP_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle/macos -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "Signing: $APP_PATH"
-            codesign --force --deep --sign - "$APP_PATH"
-            echo "Verifying signature..."
-            codesign --verify --verbose "$APP_PATH" || true
+          set -e
+          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+
+          # Find the DMG
+          DMG_PATH=$(find "$BUNDLE_DIR" -name "*.dmg" -type f | head -1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "No DMG found!"
+            exit 1
           fi
+          echo "Found DMG: $DMG_PATH"
+
+          # Create temp directory
+          WORK_DIR=$(mktemp -d)
+          MOUNT_POINT="$WORK_DIR/dmg_mount"
+          mkdir -p "$MOUNT_POINT"
+
+          # Mount the DMG
+          echo "Mounting DMG..."
+          hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_POINT" -nobrowse -quiet
+
+          # Find and copy the .app
+          APP_NAME=$(ls "$MOUNT_POINT" | grep "\.app$" | head -1)
+          if [ -z "$APP_NAME" ]; then
+            echo "No .app found in DMG!"
+            hdiutil detach "$MOUNT_POINT" -quiet
+            exit 1
+          fi
+          echo "Found app: $APP_NAME"
+
+          # Copy app to work directory
+          cp -R "$MOUNT_POINT/$APP_NAME" "$WORK_DIR/"
+
+          # Unmount original DMG
+          hdiutil detach "$MOUNT_POINT" -quiet
+
+          # Sign the app with ad-hoc signature
+          echo "Signing app..."
+          codesign --force --deep --sign - "$WORK_DIR/$APP_NAME"
+
+          # Verify signature
+          echo "Verifying signature..."
+          codesign --verify --verbose "$WORK_DIR/$APP_NAME"
+
+          # Remove old DMG
+          rm "$DMG_PATH"
+
+          # Create new DMG with signed app
+          echo "Creating new DMG..."
+          hdiutil create -volname "Notemaker" -srcfolder "$WORK_DIR/$APP_NAME" -ov -format UDZO "$DMG_PATH"
+
+          # Cleanup
+          rm -rf "$WORK_DIR"
+
+          echo "Done! Signed DMG created at: $DMG_PATH"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
