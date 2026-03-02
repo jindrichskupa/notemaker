@@ -90,6 +90,7 @@ fn get_default_interpreter(language: &str) -> &'static str {
         "shell" => "bash",
         "python" => "python3",
         "ruby" => "ruby",
+        "hurl" => "hurl",
         _ => "sh",
     }
 }
@@ -108,25 +109,36 @@ pub async fn execute_code_block_async(
     let lang = language.to_lowercase();
 
     // Validate language
-    if !matches!(lang.as_str(), "shell" | "python" | "ruby") {
+    if !matches!(lang.as_str(), "shell" | "python" | "ruby" | "hurl") {
         return Err(FsError::InvalidPath(format!("Unsupported language: {}", language)));
     }
 
     let interp = interpreter.unwrap_or_else(|| get_default_interpreter(&lang).to_string());
 
-    // Get the appropriate argument flag for the language
-    let arg_flag = match lang.as_str() {
-        "shell" => "-c",
-        "python" => "-c",
-        "ruby" => "-e",
-        _ => "-c",
+    // Build command based on language
+    let (cmd_name, cmd_args, temp_file) = if lang == "hurl" {
+        // Hurl requires a file, write code to temp file
+        let temp_path = work_dir.join(format!("{}.hurl", block_id));
+        std::fs::write(&temp_path, &code).map_err(FsError::Io)?;
+        (interp, vec!["--verbose".to_string(), temp_path.to_string_lossy().to_string()], Some(temp_path))
+    } else {
+        // Other languages use -c or -e flag with inline code
+        let arg_flag = match lang.as_str() {
+            "shell" => "-c",
+            "python" => "-c",
+            "ruby" => "-e",
+            _ => "-c",
+        };
+        (interp, vec![arg_flag.to_string(), code.clone()], None)
     };
 
     // Build command with process group on Unix
     #[cfg(unix)]
     let child = {
-        let mut cmd = Command::new(&interp);
-        cmd.arg(arg_flag).arg(&code);
+        let mut cmd = Command::new(&cmd_name);
+        for arg in &cmd_args {
+            cmd.arg(arg);
+        }
         cmd.current_dir(&work_dir);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
@@ -142,8 +154,10 @@ pub async fn execute_code_block_async(
 
     #[cfg(windows)]
     let child = {
-        let mut cmd = Command::new(&interp);
-        cmd.arg(arg_flag).arg(&code);
+        let mut cmd = Command::new(&cmd_name);
+        for arg in &cmd_args {
+            cmd.arg(arg);
+        }
         cmd.current_dir(&work_dir);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
@@ -164,6 +178,11 @@ pub async fn execute_code_block_async(
     {
         let mut manager = process_state.lock().await;
         manager.untrack(&block_id);
+    }
+
+    // Clean up temp file for hurl
+    if let Some(temp_path) = temp_file {
+        let _ = std::fs::remove_file(temp_path);
     }
 
     Ok(CodeExecutionResult {
