@@ -2,6 +2,22 @@
 
 All notable changes to Notemaker will be documented in this file.
 
+## [0.6.0] - 2026-03-02
+
+### Hurl Integration
+
+- **Hurl Support** - New executable language for HTTP API testing in notebooks
+- **Verbose Output** - Full request/response details with `--verbose` flag
+- **Configurable Interpreter** - Custom path to `hurl` binary in Vault Settings → Interpreters
+
+### Technical
+
+- Added `hurl` to `InterpreterSettings` (Rust backend)
+- File-based execution with automatic temp file cleanup
+- New language option in notebook block dropdown
+
+---
+
 ## [0.5.0] - 2026-03-02
 
 ### Git UI Improvements
