@@ -181,6 +181,9 @@ pub struct InterpreterSettings {
     /// Path to Node.js interpreter (default: node)
     #[serde(default)]
     pub node: Option<String>,
+    /// Path to Hurl interpreter (default: hurl)
+    #[serde(default)]
+    pub hurl: Option<String>,
 }
 
 impl Default for InterpreterSettings {
@@ -190,6 +193,7 @@ impl Default for InterpreterSettings {
             python: None,
             ruby: None,
             node: None,
+            hurl: None,
         }
     }
 }
