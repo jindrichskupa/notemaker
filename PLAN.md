@@ -249,6 +249,8 @@ notemaker/
 | I-018 | **Inline image preview** | ✅ Hotovo | Zobrazení obrázků přímo v editoru místo markdown syntaxe. Max 400x300px. Na aktivním řádku se zobrazí syntax pro editaci. |
 | I-019 | **Orphan assets cleanup** | ⏳ Plánováno | Detekce a mazání obrázků v `.assets` složkách, které nejsou referencovány v žádné poznámce. Command Palette "Clean Orphan Assets". |
 | I-020 | **Shared assets folder** | ⏳ Plánováno | Volitelná sdílená složka pro assety na úrovni vaultu (`vault/.assets/`). Umožní snadné sdílení obrázků mezi poznámkami. |
+| I-021 | **Hurl integration** | ✅ Hotovo | Hurl jako executable jazyk pro HTTP testing. `--verbose` output. Konfigurovatelná cesta v Vault Settings. |
+| I-022 | **Hurl syntax highlighting** | ⏳ Plánováno | Custom CodeMirror mode pro Hurl syntaxi (requests, headers, assertions). |
 
 ## Multiplatformní podpora
 
