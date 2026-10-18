@@ -7,6 +7,7 @@ import { SearchQuery, SearchResult } from "./types";
 import { TreeNode } from "../store/vault";
 import { parseNote, getNoteTitle } from "../frontmatter";
 import * as fs from "../fs";
+import { escapeHtml } from "../markdown/renderer";
 
 interface IndexedNote {
   path: string;
@@ -294,13 +295,12 @@ class SearchEngine {
     if (start > 0) snippet = "..." + snippet;
     if (end < content.length) snippet = snippet + "...";
 
-    // Highlight matches
-    for (const term of allTerms) {
-      const regex = new RegExp(`(${this.escapeRegex(term)})`, "gi");
-      snippet = snippet.replace(regex, "<mark>$1</mark>");
-    }
-
-    return snippet;
+    // Highlight matches; snippet is rendered via innerHTML, so escape everything else
+    const regex = new RegExp(`(${allTerms.map((t) => this.escapeRegex(t)).join("|")})`, "gi");
+    return snippet
+      .split(regex)
+      .map((part, i) => (i % 2 ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part)))
+      .join("");
   }
 
   /**

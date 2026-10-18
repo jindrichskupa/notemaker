@@ -9,6 +9,8 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import { visit } from "unist-util-visit";
 import type { Root, Element } from "hast";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -102,6 +104,10 @@ function createProcessor(basePath?: string) {
     .use(remarkGfm)
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    // Notes may come from untrusted sources (git pull) - strip scripts/handlers
+    // before any of our own plugins add attributes
+    .use(rehypeSanitize)
     .use(rehypeEnableCheckboxes);
 
   // Add image path resolution if basePath is provided
@@ -111,7 +117,7 @@ function createProcessor(basePath?: string) {
 
   return proc
     .use(rehypeHighlight, { detect: true, ignoreMissing: true })
-    .use(rehypeStringify, { allowDangerousHtml: true });
+    .use(rehypeStringify);
 }
 
 // Create a default processor for cases without base path
@@ -153,7 +159,7 @@ export function renderMarkdownSync(content: string, basePath?: string): string {
 /**
  * Escape HTML special characters
  */
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   const map: Record<string, string> = {
     "&": "&amp;",
     "<": "&lt;",
