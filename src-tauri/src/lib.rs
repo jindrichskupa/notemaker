@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-mod commands;
 mod fs;
 mod git;
 
@@ -24,8 +23,6 @@ pub fn run() {
         .manage(process_state)
         .manage(encryption_state)
         .invoke_handler(tauri::generate_handler![
-            // Basic commands
-            commands::greet,
             // File system commands
             fs::open_vault,
             fs::list_directory,
