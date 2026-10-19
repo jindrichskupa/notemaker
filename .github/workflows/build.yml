@@ -95,6 +95,10 @@ jobs:
         with:
           args: --target ${{ matrix.target }}
 
+      # After the build: generate_context! needs ../dist to exist
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }}
+
       - name: Sign macOS app and recreate DMG
         if: matrix.platform == 'macos-latest'
         run: |
