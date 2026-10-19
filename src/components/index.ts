@@ -50,6 +50,7 @@ export { ShortcutsHelp } from "./ShortcutsHelp";
 export type { ShortcutsHelpProps } from "./ShortcutsHelp";
 
 export { ExportDialog } from "./ExportDialog";
+export { OrphanAssetsDialog } from "./OrphanAssetsDialog";
 export type { ExportDialogProps } from "./ExportDialog";
 
 export { NotebookBlock } from "./NotebookBlock";

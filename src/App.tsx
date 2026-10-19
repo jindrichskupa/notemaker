@@ -1,6 +1,6 @@
 import { createSignal, Show, onMount, onCleanup, createEffect } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
-import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel, SaveAsTemplateDialog, PasswordDialog, KanbanEditor } from "./components";
+import { EditorWithPreview, Sidebar, CommandPalette, QuickOpen, SearchPanel, ExportDialog, OrphanAssetsDialog, ShortcutsHelp, NotebookEditor, GitPanel, GitStatusIndicator, TemplateDialog, SettingsPanel, SaveAsTemplateDialog, PasswordDialog, KanbanEditor } from "./components";
 import { VaultSettingsDialog } from "./components/VaultSettingsDialog";
 import { encryptionStore } from "./lib/store/encryption";
 import { createFromTemplate, isNotebookTemplate, processNotebookTemplate, type NoteTemplate } from "./lib/templates";
@@ -116,6 +116,7 @@ function App() {
   const [showQuickOpen, setShowQuickOpen] = createSignal(false);
   const [showSearchPanel, setShowSearchPanel] = createSignal(false);
   const [showExportDialog, setShowExportDialog] = createSignal(false);
+  const [showOrphanAssets, setShowOrphanAssets] = createSignal(false);
   const [showNewNoteDialog, setShowNewNoteDialog] = createSignal(false);
   const [newNoteName, setNewNoteName] = createSignal("");
   const [showNewNotebookDialog, setShowNewNotebookDialog] = createSignal(false);
@@ -326,6 +327,7 @@ function App() {
       },
       toggleSidebar: () => setShowSidebar(!showSidebar()),
       openExportDialog: () => setShowExportDialog(true),
+      openOrphanAssetsDialog: () => setShowOrphanAssets(true),
       openShortcutsHelp: () => setShowShortcutsHelp(true),
       openGitPanel: () => setShowGitPanel(true),
       openTemplateDialog: () => {
@@ -512,6 +514,16 @@ function App() {
       />
 
       {/* Export Dialog */}
+      <Show when={vaultStore.vault()}>
+        {(vault) => (
+          <OrphanAssetsDialog
+            isOpen={showOrphanAssets()}
+            vaultPath={vault().path}
+            onClose={() => setShowOrphanAssets(false)}
+          />
+        )}
+      </Show>
+
       <ExportDialog
         isOpen={showExportDialog()}
         onClose={() => setShowExportDialog(false)}

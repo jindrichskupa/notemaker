@@ -27,6 +27,7 @@ let openSaveAsTemplateDialog: (() => void) | null = null;
 let openSettingsPanel: (() => void) | null = null;
 let openVaultSettingsDialog: (() => void) | null = null;
 let openNewKanbanDialog: (() => void) | null = null;
+let openOrphanAssetsDialog: (() => void) | null = null;
 
 export function setUICallbacks(callbacks: {
   openCommandPalette?: () => void;
@@ -45,6 +46,7 @@ export function setUICallbacks(callbacks: {
   openSettingsPanel?: () => void;
   openVaultSettingsDialog?: () => void;
   openNewKanbanDialog?: () => void;
+  openOrphanAssetsDialog?: () => void;
 }) {
   openCommandPalette = callbacks.openCommandPalette || null;
   openQuickOpen = callbacks.openQuickOpen || null;
@@ -62,6 +64,7 @@ export function setUICallbacks(callbacks: {
   openSettingsPanel = callbacks.openSettingsPanel || null;
   openVaultSettingsDialog = callbacks.openVaultSettingsDialog || null;
   openNewKanbanDialog = callbacks.openNewKanbanDialog || null;
+  openOrphanAssetsDialog = callbacks.openOrphanAssetsDialog || null;
 }
 
 // Refresh recent vault commands (call when vaults list changes)
@@ -254,6 +257,15 @@ export function registerCommands() {
     label: "Export Note",
     category: "File",
     action: () => openExportDialog?.(),
+  });
+
+  commandRegistry.register({
+    id: "vault.cleanOrphanAssets",
+    label: "Clean Orphan Assets",
+    category: "File",
+    action: () => {
+      if (vaultStore.vault()) openOrphanAssetsDialog?.();
+    },
   });
 
   commandRegistry.register({

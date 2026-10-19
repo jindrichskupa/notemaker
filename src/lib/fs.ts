@@ -230,6 +230,14 @@ export async function saveAttachment(
   return invoke<string>("save_attachment", { notePath, filename, data });
 }
 
+export async function findOrphanAssets(vaultPath: string): Promise<string[]> {
+  return invoke<string[]>("find_orphan_assets", { vaultPath });
+}
+
+export async function trashAssets(vaultPath: string, paths: string[]): Promise<void> {
+  return invoke<void>("trash_assets", { vaultPath, paths });
+}
+
 // Notebook operations
 
 export async function createNotebook(

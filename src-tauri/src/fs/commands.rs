@@ -307,9 +307,9 @@ pub async fn delete_note(path: PathBuf) -> Result<(), FsError> {
         return Err(FsError::NotFound(path.display().to_string()));
     }
 
-    // Also delete associated .assets folder if it exists
-    let assets_path = path.with_extension("").join(".assets");
-    if assets_path.exists() {
+    // Also delete associated .assets folder if it exists (same naming as save_attachment)
+    let assets_path = PathBuf::from(path.with_extension("").to_string_lossy().to_string() + ".assets");
+    if assets_path.exists() && trash::delete(&assets_path).is_err() {
         fs::remove_dir_all(&assets_path)?;
     }
 
@@ -1506,4 +1506,112 @@ pub async fn save_attachment(
     let relative_path = format!("./{}/{}", assets_folder_name, new_filename);
 
     Ok(relative_path)
+}
+
+/// Find attachments in `*.assets` folders that no file in the vault references.
+/// References are matched by file name (attachments get unique `img-<ts>-<hash>` names).
+/// Assets next to encrypted content are never reported - their references can't be read.
+#[tauri::command]
+pub async fn find_orphan_assets(vault_path: PathBuf) -> Result<Vec<String>, FsError> {
+    let mut assets = Vec::new();
+    let mut text = String::new();
+    let mut protected = Vec::new();
+    collect_assets_and_text(&vault_path, &mut assets, &mut text, &mut protected)?;
+
+    Ok(assets
+        .into_iter()
+        .filter(|asset| {
+            let name = asset.file_name().unwrap_or_default().to_string_lossy();
+            !text.contains(name.as_ref()) && !protected.iter().any(|dir| asset.starts_with(dir))
+        })
+        .map(|asset| asset.to_string_lossy().into_owned())
+        .collect())
+}
+
+// Whole vault is read into one String - fine for notes vaults, stream per file if this gets slow
+fn collect_assets_and_text(
+    dir: &Path,
+    assets: &mut Vec<PathBuf>,
+    text: &mut String,
+    protected: &mut Vec<PathBuf>,
+) -> Result<(), FsError> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?; // does not follow symlinks -> no loops
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+
+        if file_type.is_dir() {
+            if name == ".git" {
+                continue;
+            }
+            if name.ends_with(".assets") {
+                for asset in fs::read_dir(&path)? {
+                    let asset = asset?;
+                    if asset.file_type()?.is_file() && !asset.file_name().to_string_lossy().starts_with('.') {
+                        assets.push(asset.path());
+                    }
+                }
+            } else {
+                collect_assets_and_text(&path, assets, text, protected)?;
+            }
+        } else if let Ok(content) = fs::read_to_string(&path) {
+            if content.contains("-----BEGIN AGE ENCRYPTED FILE-----") {
+                // Note file itself, or a block file inside a notebook directory
+                protected.push(PathBuf::from(path.with_extension("").to_string_lossy().to_string() + ".assets"));
+                protected.push(PathBuf::from(dir.to_string_lossy().to_string() + ".assets"));
+            }
+            text.push_str(&content);
+            text.push('\n');
+        }
+    }
+    Ok(())
+}
+
+/// Move attachments to trash. Only files directly inside a `*.assets` folder within the vault.
+#[tauri::command]
+pub async fn trash_assets(vault_path: PathBuf, paths: Vec<PathBuf>) -> Result<(), FsError> {
+    let mut validated = Vec::with_capacity(paths.len());
+    for path in &paths {
+        let path = validate_path(&vault_path, path)?;
+        let in_assets = path
+            .parent()
+            .and_then(|dir| dir.file_name())
+            .is_some_and(|name| name.to_string_lossy().ends_with(".assets"));
+        if !in_assets || !path.is_file() {
+            return Err(FsError::InvalidPath(path.display().to_string()));
+        }
+        validated.push(path);
+    }
+    for path in validated {
+        trash::delete(&path).map_err(|e| FsError::Io(std::io::Error::other(e.to_string())))?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod orphan_assets_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn finds_only_unreferenced_assets() {
+        let vault = tempfile::tempdir().unwrap();
+        let v = vault.path();
+        fs::write(v.join("a.md"), "![x](./a.assets/img-1-used.png)").unwrap();
+        fs::create_dir(v.join("a.assets")).unwrap();
+        fs::write(v.join("a.assets/img-1-used.png"), "").unwrap();
+        fs::write(v.join("a.assets/img-2-orphan.png"), "").unwrap();
+        fs::write(v.join("a.assets/.DS_Store"), "").unwrap();
+        // Encrypted note: its assets must never be reported
+        fs::write(v.join("secret.md"), "-----BEGIN AGE ENCRYPTED FILE-----\nxx").unwrap();
+        fs::create_dir(v.join("secret.assets")).unwrap();
+        fs::write(v.join("secret.assets/img-3-hidden.png"), "").unwrap();
+
+        let orphans = find_orphan_assets(v.to_path_buf()).await.unwrap();
+        assert_eq!(orphans.len(), 1);
+        assert!(orphans[0].ends_with("img-2-orphan.png"));
+
+        // trash_assets refuses anything outside an .assets folder
+        assert!(trash_assets(v.to_path_buf(), vec![v.join("a.md")]).await.is_err());
+    }
 }

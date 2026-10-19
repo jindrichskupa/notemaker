@@ -5,7 +5,7 @@ Multiplatformní desktop aplikace pro vývojářské a DevOps poznámky.
 
 ## Stav implementace
 
-**Poslední aktualizace:** 2026-10-19 (I-022 Hurl syntax highlighting)
+**Poslední aktualizace:** 2026-10-19 (I-019 Orphan assets cleanup)
 
 ### Dokončené funkce ✅
 
@@ -40,7 +40,6 @@ Multiplatformní desktop aplikace pro vývojářské a DevOps poznámky.
 
 | ID | Funkce | Priorita | Poznámka |
 |----|--------|----------|----------|
-| I-019 | Orphan assets cleanup | Střední | viz Implementace |
 | I-020 | Shared assets folder | Nízká | viz Implementace |
 
 ## Struktura projektu
@@ -246,7 +245,7 @@ notemaker/
 | I-016 | **Recipients encryption** | ✅ Hotovo | Multi-recipient age šifrování. UI pro generování identity, zobrazení/kopírování public key, přidávání recipients pomocí public key. Dokumentace v `docs/encryption.md`. |
 | I-017 | **Attachment support** | ✅ Hotovo | Paste (Cmd+V) a drag & drop obrázků do editoru. Ukládání do `.assets` složky. Podporované formáty: PNG, JPG, GIF, WebP, SVG (max 10MB). |
 | I-018 | **Inline image preview** | ✅ Hotovo | Zobrazení obrázků přímo v editoru místo markdown syntaxe. Max 400x300px. Na aktivním řádku se zobrazí syntax pro editaci. |
-| I-019 | **Orphan assets cleanup** | ⏳ Plánováno | Detekce a mazání obrázků v `.assets` složkách, které nejsou referencovány v žádné poznámce. Command Palette "Clean Orphan Assets". |
+| I-019 | **Orphan assets cleanup** | ✅ Hotovo | Command Palette "Clean Orphan Assets" → `OrphanAssetsDialog`. Rust `find_orphan_assets` (match podle názvu souboru v celém vaultu, assety šifrovaných poznámek se nikdy nehlásí) + `trash_assets` (jen soubory v `*.assets`, do koše). |
 | I-020 | **Shared assets folder** | ⏳ Plánováno | Volitelná sdílená složka pro assety na úrovni vaultu (`vault/.assets/`). Umožní snadné sdílení obrázků mezi poznámkami. |
 | I-021 | **Hurl integration** | ✅ Hotovo | Hurl jako executable jazyk pro HTTP testing. `--verbose` output. Konfigurovatelná cesta v Vault Settings. |
 | I-022 | **Hurl syntax highlighting** | ✅ Hotovo | `src/lib/editor/hurl.ts` StreamParser (methods, HTTP status, sections, headers, queries/predicates, `{{templates}}`), lazy loaded. Jen editor - preview (highlight.js) Hurl nezná. |

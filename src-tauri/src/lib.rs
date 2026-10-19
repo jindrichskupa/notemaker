@@ -33,6 +33,8 @@ pub fn run() {
             fs::rename_note,
             fs::move_note,
             fs::save_attachment,
+            fs::find_orphan_assets,
+            fs::trash_assets,
             fs::create_directory,
             fs::delete_directory,
             fs::get_vault_config,
