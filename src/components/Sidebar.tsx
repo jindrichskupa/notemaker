@@ -42,7 +42,7 @@ export function Sidebar(props: SidebarProps) {
   // Fetch git status
   const refreshGitStatus = async () => {
     const vault = vaultStore.vault();
-    if (!vault) return;
+    if (!vault || document.hidden) return;
 
     try {
       const files = await gitChangedFiles(vault.path);

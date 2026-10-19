@@ -26,7 +26,7 @@ export function GitStatusIndicator(props: GitStatusIndicatorProps) {
 
     // Refresh every 10 seconds
     const interval = setInterval(() => {
-      fetchStatus(vault.path);
+      if (!document.hidden) fetchStatus(vault.path);
     }, 10000);
 
     onCleanup(() => clearInterval(interval));
