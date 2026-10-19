@@ -5,7 +5,7 @@ Multiplatformní desktop aplikace pro vývojářské a DevOps poznámky.
 
 ## Stav implementace
 
-**Poslední aktualizace:** 2026-02-24 (I-016 Recipients encryption dokončeno)
+**Poslední aktualizace:** 2026-10-18 (security hardening: sanitize HTML + CSP, lazy load mermaid/html2pdf)
 
 ### Dokončené funkce ✅
 
@@ -40,9 +40,9 @@ Multiplatformní desktop aplikace pro vývojářské a DevOps poznámky.
 
 | ID | Funkce | Priorita | Poznámka |
 |----|--------|----------|----------|
-| REQ-011 | Git Conflict Resolution | Nízká | Odloženo |
-| REQ-012 | Git History UI | Nízká | Odloženo |
-| REQ-021 | Themes | Nízká | Light/Dark themes (částečně v settings)
+| I-019 | Orphan assets cleanup | Střední | viz Implementace |
+| I-020 | Shared assets folder | Nízká | viz Implementace |
+| I-022 | Hurl syntax highlighting | Nízká | viz Implementace |
 
 ## Struktura projektu
 
@@ -235,7 +235,7 @@ notemaker/
 | I-004 | **REQ-011 Git Conflict Resolution** | ✅ Hotovo | ConflictResolver dialog pro řešení konfliktů z pull/merge/rebase. Keep Ours/Theirs/Open in Editor. |
 | I-005 | **REQ-012 Git History UI** | ✅ Hotovo | DiffViewer pro zobrazení změn v commitech. BranchSwitcher pro přepínání větví. Pull/Push/Merge/Rebase tlačítka. |
 | I-006 | **Testing** | ✅ Hotovo | Vitest + happy-dom. 55 unit testů pro: settings store, recent vaults, command registry, frontmatter parser. Scripty: `pnpm test`, `pnpm test:run`, `pnpm test:coverage`. |
-| I-007 | **Performance** | Nízká | Code splitting, lazy loading velkých dependencies (Mermaid, CodeMirror langs). |
+| I-007 | **Performance** | ✅ Částečně | Mermaid + html2pdf.js lazy loaded (main chunk 3.0 MB → 1.5 MB). Zbývá: CodeMirror langs (statické importy přes lang-markdown/html brání splitu). |
 | I-008 | **Podpora secrets** | ✅ Hotovo | Implementováno pomocí `age` crate. Password-based (scrypt) i identity file šifrování. EncryptionSession pro bezpečnou session cache. UI: PasswordDialog, VaultSettings/Encryption tab. |
 | I-009 | **Inline Markdown Rendering** | ✅ Hotovo | ViewPlugin s dekoracemi pro headings (1-6), bold, italic, strikethrough, inline code, links. Skrývání markdown syntaxe, zobrazení na aktivním řádku. Light/dark theme podpora. Toggle v Settings → Editor → Inline Markdown. |
 | I-010 | **Rychlé přepínání vaultů** | ✅ Hotovo | VaultSwitcher dropdown v sidebar header, recentVaultsStore v localStorage (max 10), dynamické příkazy "Switch to: X" v command palette, možnost odstranit vault z recent seznamu. |
