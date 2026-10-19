@@ -134,6 +134,13 @@ export const languages = [
     },
   }),
   LanguageDescription.of({
+    name: "hurl",
+    load: async () => {
+      const { hurl } = await import("./hurl");
+      return wrapStreamLanguage(StreamLanguage.define(hurl));
+    },
+  }),
+  LanguageDescription.of({
     name: "hcl",
     alias: ["terraform", "tf"],
     load: async () => {
