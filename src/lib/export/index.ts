@@ -3,7 +3,6 @@
  */
 
 import { renderMarkdown } from "../markdown";
-import html2pdf from "html2pdf.js";
 
 export type ExportFormat = "html" | "pdf";
 
@@ -227,6 +226,7 @@ export async function generatePdf(html: string, filename: string): Promise<void>
     };
 
     // Generate and download the PDF
+    const { default: html2pdf } = await import("html2pdf.js");
     await html2pdf().set(options).from(container).save();
   } finally {
     // Clean up the container

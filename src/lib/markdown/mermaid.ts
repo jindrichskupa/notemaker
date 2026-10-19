@@ -2,16 +2,15 @@
  * Mermaid diagram rendering utilities
  */
 
-import mermaid from "mermaid";
-
-// Track initialization
-let initialized = false;
+// Loaded on first diagram - mermaid is the biggest dependency in the bundle
+let mermaid: typeof import("mermaid").default | undefined;
 
 /**
  * Initialize mermaid with dark theme
  */
-export function initMermaid(): void {
-  if (initialized) return;
+export async function initMermaid(): Promise<typeof import("mermaid").default> {
+  if (mermaid) return mermaid;
+  mermaid = (await import("mermaid")).default;
 
   mermaid.initialize({
     startOnLoad: false,
@@ -52,7 +51,7 @@ export function initMermaid(): void {
     },
   });
 
-  initialized = true;
+  return mermaid;
 }
 
 /**
@@ -60,7 +59,7 @@ export function initMermaid(): void {
  * Returns the container element with rendered diagrams
  */
 export async function renderMermaidDiagrams(container: HTMLElement): Promise<void> {
-  initMermaid();
+  const mermaid = await initMermaid();
 
   // Find all mermaid code blocks
   const mermaidBlocks = container.querySelectorAll("pre code.language-mermaid, pre code.hljs.language-mermaid");
