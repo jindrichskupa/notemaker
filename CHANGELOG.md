@@ -2,6 +2,34 @@
 
 All notable changes to Notemaker will be documented in this file.
 
+## [0.7.0] - 2026-10-20
+
+### Security
+
+- **HTML sanitization** - Raw HTML in notes is sanitized before rendering (`rehype-sanitize`); search snippets are escaped. Previously a malicious note (e.g. pulled via git) could run scripts and execute commands.
+- **Content Security Policy** - CSP enabled, global Tauri object disabled
+
+### Features
+
+- **Hurl Syntax Highlighting** - Requests, headers, sections, asserts and `{{templates}}` highlighted in notebook blocks
+- **Clean Orphan Assets** - Command Palette command lists images in `.assets` folders not referenced by any note and moves them to trash (assets of encrypted notes are always kept)
+
+### Fixes
+
+- **Note deletion** - Deleting a note now also moves its `.assets` folder to trash
+
+### Performance
+
+- **Lazy loading** - Mermaid and html2pdf.js load on first use (main bundle 3.0 MB → 1.5 MB)
+- **Git polling** - Status polling paused while the window is hidden
+
+### Technical
+
+- CI runs `cargo test` on all platforms
+- Removed scaffold `greet` command
+
+---
+
 ## [0.6.0] - 2026-03-02
 
 ### Hurl Integration
