@@ -141,6 +141,14 @@ export const languages = [
     },
   }),
   LanguageDescription.of({
+    name: "env",
+    alias: ["dotenv"],
+    load: async () => {
+      const { properties } = await import("@codemirror/legacy-modes/mode/properties");
+      return wrapStreamLanguage(StreamLanguage.define(properties));
+    },
+  }),
+  LanguageDescription.of({
     name: "hcl",
     alias: ["terraform", "tf"],
     load: async () => {

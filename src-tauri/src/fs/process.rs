@@ -103,6 +103,7 @@ pub async fn execute_code_block_async(
     code: String,
     working_dir: Option<PathBuf>,
     interpreter: Option<String>,
+    env: Option<HashMap<String, String>>,
     process_state: tauri::State<'_, ProcessState>,
 ) -> Result<CodeExecutionResult, FsError> {
     let work_dir = working_dir.unwrap_or_else(|| std::env::temp_dir());
@@ -115,10 +116,21 @@ pub async fn execute_code_block_async(
 
     let interp = interpreter.unwrap_or_else(|| get_default_interpreter(&lang).to_string());
 
+    // Variables reach the process only via env (never argv, which is visible in `ps`).
+    // Hurl reads HURL_SECRET_<name> as {{name}} and masks the value in its output.
+    let mut env = env.unwrap_or_default();
+    if lang == "hurl" {
+        let secrets: Vec<(String, String)> = env
+            .iter()
+            .map(|(k, v)| (format!("HURL_SECRET_{}", k), v.clone()))
+            .collect();
+        env.extend(secrets);
+    }
+
     // Build command based on language
     let (cmd_name, cmd_args, temp_file) = if lang == "hurl" {
-        // Hurl requires a file, write code to temp file
-        let temp_path = work_dir.join(format!("{}.hurl", block_id));
+        // Hurl requires a file; keep it out of the vault so git sync never picks it up
+        let temp_path = std::env::temp_dir().join(format!("notemaker-{}.hurl", block_id));
         std::fs::write(&temp_path, &code).map_err(FsError::Io)?;
         (interp, vec!["--verbose".to_string(), temp_path.to_string_lossy().to_string()], Some(temp_path))
     } else {
@@ -140,6 +152,7 @@ pub async fn execute_code_block_async(
             cmd.arg(arg);
         }
         cmd.current_dir(&work_dir);
+        cmd.envs(&env);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
         // Create new process group for easier termination
@@ -159,6 +172,7 @@ pub async fn execute_code_block_async(
             cmd.arg(arg);
         }
         cmd.current_dir(&work_dir);
+        cmd.envs(&env);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
         cmd.spawn().map_err(FsError::Io)?

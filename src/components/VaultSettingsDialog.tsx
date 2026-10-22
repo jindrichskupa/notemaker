@@ -6,7 +6,8 @@
 import { createSignal, Show, createEffect, For } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { vaultStore } from "../lib/store/vault";
-import { getVaultConfig, saveVaultConfig, VaultConfig, Recipient, getPublicKeyFromIdentityFile, EncryptionMethod } from "../lib/fs";
+import { getVaultConfig, saveVaultConfig, VaultConfig, Recipient, getPublicKeyFromIdentityFile, EncryptionMethod, readVaultEnv, writeVaultEnv, encryptBlock, decryptBlock } from "../lib/fs";
+import { encryptionStore } from "../lib/store/encryption";
 import { GenerateIdentityDialog } from "./GenerateIdentityDialog";
 
 export interface VaultSettingsDialogProps {
@@ -14,13 +15,14 @@ export interface VaultSettingsDialogProps {
   onClose: () => void;
 }
 
-type SettingsTab = "general" | "git" | "encryption" | "interpreters";
+type SettingsTab = "general" | "git" | "encryption" | "interpreters" | "environment";
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "git", label: "Git" },
   { id: "encryption", label: "Encryption" },
   { id: "interpreters", label: "Interpreters" },
+  { id: "environment", label: "Environment" },
 ];
 
 export function VaultSettingsDialog(props: VaultSettingsDialogProps) {
@@ -174,6 +176,9 @@ export function VaultSettingsDialog(props: VaultSettingsDialogProps) {
                 </Show>
                 <Show when={activeTab() === "interpreters"}>
                   <InterpreterSettingsTab config={vaultConfig()!} onUpdate={updateConfig} />
+                </Show>
+                <Show when={activeTab() === "environment"}>
+                  <EnvironmentTab config={vaultConfig()!} vaultPath={vault()!.path} />
                 </Show>
               </Show>
             </div>
@@ -792,6 +797,86 @@ function InterpreterSettingsTab(props: { config: VaultConfig; onUpdate: UpdateFn
 }
 
 // Reusable components
+// Vault-wide variables for notebook code blocks, stored encrypted in .notemaker/env
+function EnvironmentTab(props: { config: VaultConfig; vaultPath: string }) {
+  const [text, setText] = createSignal<string | null>(null); // null = not loaded/unlocked yet
+  const [status, setStatus] = createSignal<string | null>(null);
+
+  const load = async () => {
+    setStatus(null);
+    if (!encryptionStore.isUnlocked()) {
+      const unlock = await encryptionStore.tryAutoUnlock();
+      if (!unlock.success) {
+        if (unlock.needsPassword) encryptionStore.requestPassword(load);
+        else setStatus(unlock.error || "Failed to unlock encryption");
+        return;
+      }
+    }
+    try {
+      const raw = await readVaultEnv(props.vaultPath);
+      setText(raw ? await decryptBlock(raw) : "");
+    } catch (e) {
+      setStatus(String(e));
+    }
+  };
+
+  const save = async () => {
+    try {
+      const content = text() ?? "";
+      await writeVaultEnv(props.vaultPath, content.trim() ? await encryptBlock(content) : "");
+      setStatus("Saved");
+    } catch (e) {
+      setStatus(String(e));
+    }
+  };
+
+  return (
+    <SettingGroup title="Environment Variables">
+      <div class="text-sm text-gray-400">
+        Available to all notebook code blocks as environment variables (Hurl: <code>{"{{NAME}}"}</code>).
+        Notebook <code>env</code> blocks override these. Stored encrypted in <code>.notemaker/env</code>.
+      </div>
+      <Show
+        when={props.config.encryption?.enabled}
+        fallback={<div class="text-sm text-yellow-400">Enable encryption in the Encryption tab first.</div>}
+      >
+        <Show
+          when={text() !== null}
+          fallback={
+            <button
+              onClick={load}
+              class="text-sm bg-gray-700 border border-gray-600 hover:bg-gray-600 rounded transition-colors self-start"
+              style={{ padding: "8px 16px" }}
+            >
+              Unlock to edit
+            </button>
+          }
+        >
+          <textarea
+            value={text() ?? ""}
+            onInput={(e) => setText(e.currentTarget.value)}
+            placeholder={"API_TOKEN=...\nBASE_URL=https://api.example.com"}
+            rows={10}
+            spellcheck={false}
+            class="w-full bg-gray-700 border border-gray-600 rounded text-sm text-gray-200 font-mono"
+            style={{ padding: "8px 12px" }}
+          />
+          <button
+            onClick={save}
+            class="text-sm bg-blue-600 hover:bg-blue-500 rounded font-medium transition-colors self-start"
+            style={{ padding: "8px 20px" }}
+          >
+            Save
+          </button>
+        </Show>
+      </Show>
+      <Show when={status()}>
+        <div class="text-sm text-gray-400">{status()}</div>
+      </Show>
+    </SettingGroup>
+  );
+}
+
 function SettingGroup(props: { title: string; children: any }) {
   return (
     <div>

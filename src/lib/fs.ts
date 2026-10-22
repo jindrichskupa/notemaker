@@ -398,7 +398,8 @@ export async function executeCodeBlockAsync(
   language: string,
   code: string,
   workingDir?: string,
-  interpreter?: string
+  interpreter?: string,
+  env?: Record<string, string>
 ): Promise<CodeExecutionResult> {
   return invoke<CodeExecutionResult>("execute_code_block_async", {
     blockId,
@@ -406,6 +407,7 @@ export async function executeCodeBlockAsync(
     code,
     workingDir,
     interpreter,
+    env,
   });
 }
 
@@ -517,6 +519,15 @@ export async function isNoteEncrypted(path: string): Promise<boolean> {
 
 export async function isContentEncrypted(content: string): Promise<boolean> {
   return invoke<boolean>("is_content_encrypted", { content });
+}
+
+// Vault-wide env (.notemaker/env), always stored encrypted
+export async function readVaultEnv(vaultPath: string): Promise<string> {
+  return invoke<string>("read_vault_env", { vaultPath });
+}
+
+export async function writeVaultEnv(vaultPath: string, content: string): Promise<void> {
+  return invoke("write_vault_env", { vaultPath, content });
 }
 
 // Keychain operations - persistent credential storage

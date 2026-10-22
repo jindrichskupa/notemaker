@@ -35,6 +35,8 @@ pub fn run() {
             fs::save_attachment,
             fs::find_orphan_assets,
             fs::trash_assets,
+            fs::read_vault_env,
+            fs::write_vault_env,
             fs::create_directory,
             fs::delete_directory,
             fs::get_vault_config,

@@ -32,6 +32,7 @@ const LANGUAGES = [
   { value: "python", label: "Python", executable: true },
   { value: "ruby", label: "Ruby", executable: true },
   { value: "hurl", label: "Hurl", executable: true },
+  { value: "env", label: "Env (variables)", executable: false },
   { value: "javascript", label: "JavaScript", executable: false },
   { value: "typescript", label: "TypeScript", executable: false },
   { value: "sql", label: "SQL", executable: false },

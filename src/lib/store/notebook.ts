@@ -19,8 +19,12 @@ import {
   terminateCodeBlock,
   getParentPath,
   getVaultConfig,
+  readVaultEnv,
+  decryptBlock,
 } from "../fs";
 import { vaultStore } from "./vault";
+import { encryptionStore } from "./encryption";
+import { parseEnv, isEncrypted } from "../env";
 import type { NotebookBlockDef } from "../templates";
 
 export interface BlockOutput {
@@ -433,16 +437,37 @@ function createNotebookStore() {
     const block = nb.blocks.find((b) => b.id === blockId);
     if (!block || block.type !== "code" || !block.language) return;
 
+    // Env: vault-wide .notemaker/env first, then notebook `env` blocks (later wins)
+    const vault = vaultStore.vault();
+    const vaultEnv = vault ? await readVaultEnv(vault.path).catch(() => "") : "";
+    const envSources = [vaultEnv, ...nb.blocks.filter((b) => b.language === "env").map((b) => b.content)];
+
+    // Unlock once if anything we need is encrypted; re-run after password entry
+    if ([block.content, ...envSources].some(isEncrypted) && !encryptionStore.isUnlocked()) {
+      const unlock = await encryptionStore.tryAutoUnlock();
+      if (!unlock.success) {
+        if (unlock.needsPassword) {
+          encryptionStore.requestPassword(() => runCodeBlock(blockId));
+          return;
+        }
+        setBlockOutput(blockId, { running: false, stdout: "", stderr: unlock.error || "Failed to unlock encryption", exitCode: -1 });
+        return;
+      }
+    }
+
     // Mark as running
     setBlockOutput(blockId, { running: true, stdout: "", stderr: "", exitCode: null });
 
     try {
+      const plain = (content: string) => (isEncrypted(content) ? decryptBlock(content) : Promise.resolve(content));
+      const env = Object.assign({}, ...(await Promise.all(envSources.map(plain))).map(parseEnv));
+      const code = await plain(block.content);
+
       // Use notebook's parent directory as working directory
       const workingDir = getParentPath(nb.path);
 
       // Get interpreter from vault config
       let interpreter: string | undefined;
-      const vault = vaultStore.vault();
       if (vault) {
         try {
           const config = await getVaultConfig(vault.path);
@@ -452,7 +477,7 @@ function createNotebookStore() {
         }
       }
 
-      const result = await executeCodeBlockAsync(blockId, block.language, block.content, workingDir, interpreter);
+      const result = await executeCodeBlockAsync(blockId, block.language, code, workingDir, interpreter, env);
 
       setBlockOutput(blockId, {
         running: false,

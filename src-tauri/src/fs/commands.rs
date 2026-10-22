@@ -1615,3 +1615,51 @@ mod orphan_assets_tests {
         assert!(trash_assets(v.to_path_buf(), vec![v.join("a.md")]).await.is_err());
     }
 }
+
+/// Read the vault-wide env file (`.notemaker/env`, age-armored). Empty if missing.
+#[tauri::command]
+pub async fn read_vault_env(vault_path: PathBuf) -> Result<String, FsError> {
+    let path = vault_path.join(".notemaker").join("env");
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    Ok(fs::read_to_string(path)?)
+}
+
+/// Write the vault-wide env file. Content must already be encrypted - secrets never hit disk in plaintext.
+#[tauri::command]
+pub async fn write_vault_env(vault_path: PathBuf, content: String) -> Result<(), FsError> {
+    let path = vault_path.join(".notemaker").join("env");
+    if content.trim().is_empty() {
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
+        return Ok(());
+    }
+    if !super::encryption::is_encrypted(&content) {
+        return Err(FsError::InvalidPath("Vault env must be encrypted".to_string()));
+    }
+    fs::create_dir_all(vault_path.join(".notemaker"))?;
+    Ok(fs::write(path, content)?)
+}
+
+#[cfg(test)]
+mod vault_env_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn refuses_plaintext_and_round_trips_encrypted() {
+        let vault = tempfile::tempdir().unwrap();
+        let v = vault.path().to_path_buf();
+
+        assert!(write_vault_env(v.clone(), "API_TOKEN=secret".into()).await.is_err());
+        assert!(!v.join(".notemaker/env").exists());
+
+        let armored = "-----BEGIN AGE ENCRYPTED FILE-----\nxx\n-----END AGE ENCRYPTED FILE-----";
+        write_vault_env(v.clone(), armored.into()).await.unwrap();
+        assert_eq!(read_vault_env(v.clone()).await.unwrap(), armored);
+
+        write_vault_env(v.clone(), "".into()).await.unwrap();
+        assert_eq!(read_vault_env(v).await.unwrap(), "");
+    }
+}

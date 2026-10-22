@@ -63,6 +63,24 @@ For each collaborator:
 - **Back up your identity file** — if lost, you cannot decrypt your notes
 - Encrypted notes can only be decrypted by recipients whose public keys were used during encryption
 
+## Secrets in Notebooks
+
+Code blocks (Shell, Python, Ruby, Hurl) receive variables as **environment variables**:
+
+1. **Vault-wide** — Vault Settings → Environment. Stored encrypted in `.notemaker/env` (shared via git with all recipients).
+2. **Per notebook** — a block with language **Env (variables)**. Encrypt it with the block's Encrypt button.
+
+Format is dotenv (`KEY=value`, `#` comments, optional quotes). Notebook blocks override vault variables; later blocks override earlier ones.
+
+```
+API_TOKEN=abc123
+BASE_URL=https://api.example.com
+```
+
+Usage: `$API_TOKEN` (shell), `os.environ["API_TOKEN"]` (Python), `ENV["API_TOKEN"]` (Ruby), `{{API_TOKEN}}` (Hurl — passed as `HURL_SECRET_*`, so values are masked as `***` in output).
+
+Values are decrypted only at run time and passed via the process environment — never written to disk or command-line arguments. Note that a program you run can still print them (e.g. `echo $API_TOKEN`), and that output is shown in the notebook.
+
 ## Command Line Tools
 
 Generate a new identity:

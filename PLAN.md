@@ -5,7 +5,7 @@ Multiplatformní desktop aplikace pro vývojářské a DevOps poznámky.
 
 ## Stav implementace
 
-**Poslední aktualizace:** 2026-10-19 (I-019 Orphan assets cleanup)
+**Poslední aktualizace:** 2026-10-22 (I-023 Secrets v notebooku)
 
 ### Dokončené funkce ✅
 
@@ -249,6 +249,7 @@ notemaker/
 | I-020 | **Shared assets folder** | ⏳ Plánováno | Volitelná sdílená složka pro assety na úrovni vaultu (`vault/.assets/`). Umožní snadné sdílení obrázků mezi poznámkami. |
 | I-021 | **Hurl integration** | ✅ Hotovo | Hurl jako executable jazyk pro HTTP testing. `--verbose` output. Konfigurovatelná cesta v Vault Settings. |
 | I-022 | **Hurl syntax highlighting** | ✅ Hotovo | `src/lib/editor/hurl.ts` StreamParser (methods, HTTP status, sections, headers, queries/predicates, `{{templates}}`), lazy loaded. Jen editor - preview (highlight.js) Hurl nezná. |
+| I-023 | **Secrets v notebooku** | ✅ Hotovo | `env` bloky (dotenv) + vault-wide `.notemaker/env` (vždy šifrované, Vault Settings → Environment). Předává se jako env procesu, Hurl jako `HURL_SECRET_*` (maskované). Šifrované bloky se před spuštěním dešifrují. Hurl temp soubor mimo vault. Viz `docs/encryption.md`. |
 
 ## Multiplatformní podpora
 
